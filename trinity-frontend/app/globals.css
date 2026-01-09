@@ -1,0 +1,200 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 36 70% 97%;
+    --foreground: 36 10% 15%;
+
+    --card: 36 70% 95%;
+    --card-foreground: 36 10% 15%;
+
+    --popover: 36 70% 97%;
+    --popover-foreground: 36 10% 15%;
+
+    --primary: 0 72% 42%;
+    --primary-foreground: 36 10% 98%;
+
+    --secondary: 36 30% 85%;
+    --secondary-foreground: 36 10% 15%;
+
+    --muted: 36 20% 90%;
+    --muted-foreground: 36 10% 40%;
+
+    --accent: 36 30% 85%;
+    --accent-foreground: 36 10% 15%;
+
+    --destructive: 0 85% 60%;
+    --destructive-foreground: 36 10% 98%;
+
+    --border: 36 30% 80%;
+    --input: 36 30% 80%;
+    --ring: 0 72% 42%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 36 10% 10%;
+    --foreground: 36 10% 90%;
+
+    --card: 36 10% 12%;
+    --card-foreground: 36 10% 90%;
+
+    --popover: 36 10% 10%;
+    --popover-foreground: 36 10% 90%;
+
+    --primary: 0 62% 50%;
+    --primary-foreground: 36 10% 98%;
+
+    --secondary: 36 30% 20%;
+    --secondary-foreground: 36 10% 90%;
+
+    --muted: 36 20% 20%;
+    --muted-foreground: 36 10% 60%;
+
+    --accent: 36 30% 20%;
+    --accent-foreground: 36 10% 90%;
+
+    --destructive: 0 85% 60%;
+    --destructive-foreground: 36 10% 98%;
+
+    --border: 36 30% 30%;
+    --input: 36 30% 30%;
+    --ring: 0 62% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+.flame-particle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background-color: rgba(255, 165, 0, 0.5);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: -1;
+  animation: float 15s linear infinite;
+  opacity: 0;
+}
+
+@keyframes float {
+  0% {
+    transform: translateY(0) translateX(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.7;
+  }
+  90% {
+    opacity: 0.3;
+  }
+  100% {
+    transform: translateY(-100vh) translateX(20px);
+    opacity: 0;
+  }
+}
+
+/* Inline Social Share Animations */
+@keyframes staggeredFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Apply staggered animation to platform buttons when they become visible */
+.platform-button {
+  animation: staggeredFadeIn 0.3s ease-out forwards;
+  opacity: 0; /* Start hidden, animation will make it visible */
+}
+
+/* Smooth expansion animation for the container */
+/* The max-height transition is handled inline via style prop for dynamic values */
+
+/* Mobile touch enhancements */
+@media (max-width: 768px) {
+  .platform-button {
+    min-height: 50px; /* Ensure touch targets are adequate */
+    touch-action: manipulation; /* Improve touch responsiveness */
+  }
+  .share-button {
+    /* Assuming the main share button has this class or similar */
+    touch-action: manipulation;
+  }
+}
+
+/* Accessibility enhancements */
+@media (prefers-reduced-motion: reduce) {
+  .platform-button,
+  #social-share-icons /* Target the container for expansion */ {
+    animation: none !important;
+    transition-property: opacity, max-height; /* Allow only essential transitions */
+    transition-duration: 0.01s !important; /* Make transitions very fast */
+  }
+}
+
+/* Focus styles for keyboard navigation */
+.platform-button:focus-visible,
+button:focus-visible {
+  /* General focus for buttons */
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px hsla(var(--primary), 0.3); /* Softer focus ring */
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: more) {
+  .platform-button {
+    border-width: 2px; /* Make borders more prominent */
+    border-color: currentColor; /* Use user's high contrast color */
+  }
+  /* Ensure text has enough contrast if background changes */
+  .platform-button span {
+    color: currentColor !important;
+  }
+  .platform-button svg {
+    stroke: currentColor !important;
+    fill: currentColor !important; /* If icons use fill */
+  }
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.hide-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+/* Added for rolling animation */
+@keyframes scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.animate-scroll {
+  animation: scroll 40s linear infinite;
+}
+.hover-pause-animation:hover {
+  animation-play-state: paused;
+}
