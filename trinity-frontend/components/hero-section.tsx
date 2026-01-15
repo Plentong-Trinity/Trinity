@@ -26,11 +26,11 @@ export function HeroSection() {
           />
         </div>
 
-        <h1 className="text-4xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+        <h1 className="text-4xl md:text-6xl p-2 font-bold mb-4 bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
           Plentong全靠我
         </h1>
 
-        <p className="text-xl md:text-2xl mb-8 max-w-2xl">Truth Preserved. Censorship Resisted.</p>
+        <p className="text-xl md:text-2xl mb-8 max-w-2xl">Truth 艾斯德尔是我的😇 Reserved. Marriage Registered.</p>
 
         <p className="text-lg mb-10 max-w-2xl text-muted-foreground">
           A decentralized archive preserving censored history, martyrs' testimonies, Bible translations, prophecy
@@ -38,7 +38,8 @@ export function HeroSection() {
         </p>
 
         {/* Rolling Articles Section */}
-        <div className="w-full max-w-6xl my-8">
+        {/* Can be used as Gallery Section in the future */}
+        {/* <div className="w-full max-w-6xl my-8">
           <h3 className="text-lg font-bold text-primary mb-4 text-center">MUST READS</h3>
           <div className="relative w-full overflow-hidden bg-primary/5 p-4 rounded-lg border border-primary/20 backdrop-blur-sm">
             <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-background via-transparent to-background" />
@@ -66,9 +67,9 @@ export function HeroSection() {
               ))}
             </div>
           </div>
-        </div>
+        </div> */}
 
-        <div className="mb-8 p-4 bg-primary/10 backdrop-blur-sm border border-primary/20 rounded-lg max-w-2xl">
+        {/* <div className="mb-8 p-4 bg-primary/10 backdrop-blur-sm border border-primary/20 rounded-lg max-w-2xl">
           <p className="text-sm text-muted-foreground mb-2">
             <strong className="text-primary">Access Notice:</strong> Due to regional restrictions and ISP limitations,
             some IPFS links may require alternative connection methods.
@@ -85,7 +86,24 @@ export function HeroSection() {
             </a>{" "}
             for unrestricted access to preserved documents.
           </p>
-        </div>
+        </div> */}
+
+        {/* <div className="flex justify-center">
+          <Button size="lg" asChild>
+            <a
+              href="#library"
+              onClick={(e) => {
+                e.preventDefault()
+                document.getElementById("library")?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "start",
+                })
+              }}
+            >
+              Explore Library
+            </a>
+          </Button>
+        </div> */}
 
         <div className="flex justify-center">
           <Button size="lg" asChild>
@@ -99,7 +117,7 @@ export function HeroSection() {
                 })
               }}
             >
-              Explore Library
+              Explore Esther
             </a>
           </Button>
         </div>

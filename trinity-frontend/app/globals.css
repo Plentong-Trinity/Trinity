@@ -1,11 +1,16 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+/* @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400..900&display=swap'); */
+
+.__className_f367f3 {
+  font-family: "Cinzel", serif;
+  font-style: italic;
+}
 
 @layer base {
   :root {
-    --font-sans: "Times New Roman", Times, serif;
-
+    /* --font-sans: "Times New Roman", Times, serif; */
     --background: 36 70% 97%;
     --foreground: 36 10% 15%;
 

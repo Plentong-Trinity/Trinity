@@ -29,7 +29,7 @@ export function Navbar() {
       }`}
     >
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2" >
           <div className="relative w-8 h-8">
             <Image
               src="/Images/ikun.jpg"
@@ -90,7 +90,7 @@ function NavLinks({ mobile = false, onClick }: { mobile?: boolean; onClick?: () 
       <a href="#about" className={linkClass} onClick={(e) => scrollToSection(e, "about")}>
         About
       </a>
-      <a href="#contribute" className={linkClass} onClick={(e) => scrollToSection(e, "contribute")}>
+      <a href="#mass-schedule" className={linkClass} onClick={(e) => scrollToSection(e, "mass-schedule")}>
         Mass Schedule
       </a>
       <a href="#contact" className={linkClass} onClick={(e) => scrollToSection(e, "contact")}>

@@ -14,6 +14,7 @@ import { FloatingParticles } from "@/components/floating-particles"
 import { ErrorBoundary } from "@/components/error-boundary"
 import { ModalProvider, useModal } from "@/components/modal-context"
 import { PDFViewerModal } from "@/components/pdf-viewer-modal"
+import { MassSection } from "@/components/Mass-schedule"
 
 // Global Modal Component - Single instance for entire app
 function GlobalModal() {
@@ -32,12 +33,14 @@ function AppContent() {
         </ErrorBoundary>
         <Navbar />
         <HeroSection />
-        <ErrorBoundary
+        <MassSection />
+        {/* Books Section */}
+        {/* <ErrorBoundary
           fallback={<div className="py-20 text-center">Featured books section is currently unavailable</div>}
         >
           <FeaturedBooksSection />
-        </ErrorBoundary>
-        <AboutSection />
+        </ErrorBoundary> */}
+        {/* <AboutSection /> */}
         <ErrorBoundary fallback={<div className="py-20 text-center">Library section is currently unavailable</div>}>
           <LibrarySection />
         </ErrorBoundary>

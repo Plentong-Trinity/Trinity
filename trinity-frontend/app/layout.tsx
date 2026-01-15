@@ -4,10 +4,11 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 
+
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Immutable | Truth Preserved. Censorship Resisted.",
+  title: "St' Joseph Plentong Church",
   description:
     "Discover immutable records of historic truth at Immutable Archive. Explore suppressed texts, prophetic parallels, and ancient wisdom preserved for truth-seekers worldwide.",
   keywords: [
@@ -143,6 +144,9 @@ export default function RootLayout({
           }}
         />
         <link rel="canonical" href="https://historictruth.org" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400..900&display=swap" rel="stylesheet" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta httpEquiv="Content-Type" content="text/html; charset=utf-8" />
         <meta name="language" content="English" />
