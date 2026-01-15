@@ -32,14 +32,14 @@ export function Navbar() {
         <Link href="/" className="flex items-center gap-2">
           <div className="relative w-8 h-8">
             <Image
-              src="/immutable_logo_clean.png"
-              alt="Immutable Logo"
+              src="/Images/ikun.jpg"
+              alt="Church Logo"
               width={32}
               height={32}
               className="object-contain"
             />
           </div>
-          <span className="text-xl font-bold text-primary">Immutable</span>
+          <span className="text-xl font-bold text-primary">Church of St. Joseph, Plentong</span>
         </Link>
 
         <div className="hidden md:flex items-center gap-6">
@@ -90,18 +90,18 @@ function NavLinks({ mobile = false, onClick }: { mobile?: boolean; onClick?: () 
       <a href="#about" className={linkClass} onClick={(e) => scrollToSection(e, "about")}>
         About
       </a>
-      <Link href="/blog" className={linkClass} onClick={onClick}>
-        Blog
-      </Link>
-      <a href="#library" className={linkClass} onClick={(e) => scrollToSection(e, "library")}>
-        Library
-      </a>
       <a href="#contribute" className={linkClass} onClick={(e) => scrollToSection(e, "contribute")}>
-        Contribute
+        Mass Schedule
       </a>
       <a href="#contact" className={linkClass} onClick={(e) => scrollToSection(e, "contact")}>
         Contact
       </a>
+      <a href="#contact" className={linkClass} onClick={(e) => scrollToSection(e, "contact")}>
+        Bulletin
+      </a>
+      <Link href="/blog" className={linkClass} onClick={onClick}>
+        Room Booking
+      </Link>
     </>
   )
 }

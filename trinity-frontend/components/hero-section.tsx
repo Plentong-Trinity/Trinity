@@ -17,7 +17,7 @@ export function HeroSection() {
       <div className="container mx-auto max-w-5xl z-10 flex flex-col items-center">
         <div className="mb-6 relative w-64 h-64 md:w-80 md:h-80">
           <Image
-            src="/immutable_logo_clean.png"
+            src="/Images/ikun.jpg"
             alt="Immutable Logo"
             width={320}
             height={320}
@@ -27,7 +27,7 @@ export function HeroSection() {
         </div>
 
         <h1 className="text-4xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-          Immutable
+          Plentong全靠我
         </h1>
 
         <p className="text-xl md:text-2xl mb-8 max-w-2xl">Truth Preserved. Censorship Resisted.</p>
