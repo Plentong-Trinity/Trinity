@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import Image from "next/image"
-import { RelatedArticles } from "@/components/related-articles"
+import { RelatedArticles } from "@/components/for-referencing/related-articles"
 
 export const metadata: Metadata = {
   title: "The Forgotten Commandment: Exposing the Great Sabbath Deception | Immutable",

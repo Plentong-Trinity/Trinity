@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button"
 import { X, ExternalLink } from "lucide-react"
 import type { DocumentSource } from "@/lib/document-data-with-github-fallbacks"
 
-const PDFViewer = dynamic(() => import("@/components/pdf-viewer").then((m) => m.PDFViewer), {
+const PDFViewer = dynamic(() => import("@/components/for-referencing/pdf-viewer").then((m) => m.PDFViewer), {
   ssr: false,
   loading: () => (
     <div className="flex h-full items-center justify-center p-8 text-muted-foreground">

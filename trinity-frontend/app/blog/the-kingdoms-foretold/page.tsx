@@ -3,7 +3,7 @@ import Link from "next/link"
 import type { Metadata } from "next"
 import { ArrowLeft } from "lucide-react"
 import { blogPosts } from "@/lib/blog-data"
-import RelatedArticles from "@/components/related-articles"
+import RelatedArticles from "@/components/for-referencing/related-articles"
 
 export const metadata: Metadata = {
   title: "The Kingdoms Foretold: How an Ancient Dream Revealed World History Before It Happened",

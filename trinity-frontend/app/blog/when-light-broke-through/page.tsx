@@ -3,7 +3,7 @@ import { Footer } from "@/components/footer"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
-import { RelatedArticles } from "@/components/related-articles" // Import the new component
+import { RelatedArticles } from "@/components/for-referencing/related-articles" // Import the new component
 
 export default function BlogPostPage() {
   return (

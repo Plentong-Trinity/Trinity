@@ -11,7 +11,7 @@ export function HeroSection() {
   const loopedBlogPosts = [...blogPosts, ...blogPosts]
 
   return (
-    <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-4 pt-16 overflow-x-hidden">
+    <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-4 pt-16 overflow-x-hidden mb-20">
       <div className="absolute inset-0 bg-gradient-to-b from-background/0 via-background/0 to-background z-0" />
 
       <div className="container mx-auto max-w-5xl z-10 flex flex-col items-center">

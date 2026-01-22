@@ -4,8 +4,8 @@ import Image from "next/image"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { RelatedArticles } from "@/components/related-articles"
-import { SocialShare } from "@/components/social-share"
+import { RelatedArticles } from "@/components/for-referencing/related-articles"
+import { SocialShare } from "@/components/for-referencing/social-share"
 
 export default function TotalOnslaughtPage() {
   const scrollToSection = (sectionId: string) => {

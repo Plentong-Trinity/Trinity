@@ -7,7 +7,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { ModeToggle } from "@/components/mode-toggle"
+import { ModeToggle } from "@/components/for-referencing/mode-toggle"
 
 export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -96,12 +96,19 @@ function NavLinks({ mobile = false, onClick }: { mobile?: boolean; onClick?: () 
       <a href="#contact" className={linkClass} onClick={(e) => scrollToSection(e, "contact")}>
         Contact
       </a>
-      <a href="#contact" className={linkClass} onClick={(e) => scrollToSection(e, "contact")}>
+      <a href="/bulletin" className={linkClass} onClick={onClick}>
         Bulletin
       </a>
       <Link href="/blog" className={linkClass} onClick={onClick}>
         Room Booking
       </Link>
+      <a href="/login" className={linkClass} onClick={onClick}>
+        <button
+          className={linkClass + " bg-primary text-white px-4 py-2 rounded-md hover:text-black hover:bg-red-200 transition-colors"}
+        >
+          Login
+        </button>
+      </a>
     </>
   )
 }

@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import Image from "next/image"
-import { RelatedArticles } from "@/components/related-articles"
-import { SocialShare } from "@/components/social-share"
+import { RelatedArticles } from "@/components/for-referencing/related-articles"
+import { SocialShare } from "@/components/for-referencing/social-share"
 
 export const metadata: Metadata = {
   title:

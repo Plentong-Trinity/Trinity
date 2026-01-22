@@ -1,7 +1,7 @@
 import Image from "next/image"
 import type { Metadata } from "next"
-import { SocialShare } from "@/components/social-share"
-import { RelatedArticles } from "@/components/related-articles"
+import { SocialShare } from "@/components/for-referencing/social-share"
+import { RelatedArticles } from "@/components/for-referencing/related-articles"
 
 export const metadata: Metadata = {
   title: "What Israel is The Bible Speaking Of? | Historic Truth",
