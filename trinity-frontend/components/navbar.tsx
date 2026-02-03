@@ -22,6 +22,18 @@ export function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
+  const scrollToSection = (e: React.MouseEvent<HTMLAnchorElement>, sectionId: string) => {
+    e.preventDefault()
+    if (window.location.pathname !== "/") {
+      window.location.href = `/#${sectionId}`
+      return
+    }
+    const section = document.getElementById(sectionId)
+    if (section) {
+      section.scrollIntoView({ behavior: "smooth", block: "start" })
+    }
+  }
+
   return (
     <nav
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
@@ -29,7 +41,7 @@ export function Navbar() {
       }`}
     >
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2" >
+        <Link href="#hero" className="flex items-center gap-2" onClick={(e) => scrollToSection(e, "hero")}>
           <div className="relative w-8 h-8">
             <Image
               src="/Images/ikun.jpg"
@@ -42,8 +54,8 @@ export function Navbar() {
           <span className="text-xl font-bold text-primary">Church of St. Joseph, Plentong</span>
         </Link>
 
-        <div className="hidden md:flex items-center gap-6">
-          <NavLinks />
+        <div className={`hidden md:flex items-center gap-6 ${isScrolled ? "text-black" : "text-white"}`}>
+          <NavLinks scrollToSection={scrollToSection} />
           <ModeToggle />
         </div>
 
@@ -59,7 +71,7 @@ export function Navbar() {
       {isMenuOpen && (
         <div className="md:hidden bg-background/95 backdrop-blur-md">
           <div className="container mx-auto px-4 py-4 flex flex-col gap-4">
-            <NavLinks mobile onClick={() => setIsMenuOpen(false)} />
+            <NavLinks scrollToSection={scrollToSection} mobile onClick={() => setIsMenuOpen(false)} />
           </div>
         </div>
       )}
@@ -67,27 +79,14 @@ export function Navbar() {
   )
 }
 
-function NavLinks({ mobile = false, onClick }: { mobile?: boolean; onClick?: () => void }) {
+function NavLinks({ mobile = false, scrollToSection, onClick }: { mobile?: boolean; scrollToSection: (e: React.MouseEvent<HTMLAnchorElement>, sectionId: string) => void; onClick?: () => void }) {
   const linkClass = mobile
     ? "block py-2 text-foreground hover:text-primary transition-colors"
-    : "text-foreground hover:text-primary transition-colors"
-
-  const scrollToSection = (e: React.MouseEvent<HTMLAnchorElement>, sectionId: string) => {
-    e.preventDefault()
-    if (window.location.pathname !== "/") {
-      window.location.href = `/#${sectionId}`
-      return
-    }
-    const section = document.getElementById(sectionId)
-    if (section) {
-      section.scrollIntoView({ behavior: "smooth", block: "start" })
-    }
-    if (onClick) onClick()
-  }
+    : "hover:text-primary transition-colors"
 
   return (
     <>
-      <a href="#about" className={linkClass} onClick={(e) => scrollToSection(e, "about")}>
+      <a href="#about" className={`${linkClass}`} onClick={(e) => scrollToSection(e, "about")}>
         About
       </a>
       <a href="#mass-schedule" className={linkClass} onClick={(e) => scrollToSection(e, "mass-schedule")}>

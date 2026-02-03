@@ -1,6 +1,6 @@
 import Link from "next/link"
 import Image from "next/image"
-import { Github } from "lucide-react"
+import { Facebook } from "lucide-react"
 
 export function Footer() {
   const currentYear = new Date().getFullYear()
@@ -13,25 +13,33 @@ export function Footer() {
             <div className="flex items-center gap-2 mb-2">
               <div className="relative w-8 h-8">
                 <Image
-                  src="/immutable_logo_clean.png"
+                  src="/Images/ikun.jpg"
                   alt="Immutable Logo"
                   width={32}
                   height={32}
                   className="object-contain"
                 />
               </div>
-              <span className="text-lg font-bold text-primary">Immutable</span>
+              <span className="text-lg font-bold text-primary">Church of St. Joseph, Plentong</span>
             </div>
             <p className="text-center md:text-left text-muted-foreground">
-              &copy; {currentYear} Immutable Project. All rights reserved.
+              &copy; {currentYear} Church of St. Joseph. All rights reserved.
             </p>
             <div className="flex items-center justify-center md:justify-start gap-4 mt-2 text-sm text-muted-foreground">
-              <Link href="#" className="hover:text-primary transition-colors">
-                Privacy Policy
+              <Link href="#about" className="hover:text-primary transition-colors">
+                About
               </Link>
               <span>•</span>
-              <Link href="#licensing" className="hover:text-primary transition-colors">
-                Licensing
+              <Link href="#mass-schedule" className="hover:text-primary transition-colors">
+                Mass Schedule
+              </Link>
+              <span>•</span>
+              <Link href="#contact" className="hover:text-primary transition-colors">
+                Contact
+              </Link>
+              <span>•</span>
+              <Link href="#bulletin" className="hover:text-primary transition-colors">
+                Bulletin
               </Link>
             </div>
           </div>
@@ -44,12 +52,12 @@ export function Footer() {
               className="p-2 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
               aria-label="GitHub Repository"
             >
-              <Github className="h-5 w-5 text-primary" />
+              <Facebook className="h-5 w-5 text-primary" />
             </a>
           </div>
         </div>
 
-        <div className="mt-6 pt-6 border-t border-primary/20">
+        {/* <div className="mt-6 pt-6 border-t border-primary/20">
           <div className="bg-card/30 backdrop-blur-sm rounded-lg p-4 text-center">
             <p className="text-sm text-muted-foreground mb-2">
               <strong className="text-primary">Experiencing Access Issues?</strong>
@@ -67,12 +75,12 @@ export function Footer() {
               to ensure complete access to our preserved historical archives.
             </p>
           </div>
-        </div>
+        </div> */}
 
-        <div className="mt-6 text-center text-sm text-muted-foreground">
+        {/* <div className="mt-6 text-center text-sm text-muted-foreground">
           <p>Content licensed under CC BY-NC-SA 4.0 • Code licensed under GPLv3</p>
           <p className="mt-2">Built with Next.js and Tailwind CSS</p>
-        </div>
+        </div> */}
       </div>
     </footer>
   )
