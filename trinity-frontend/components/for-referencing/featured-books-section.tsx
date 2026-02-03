@@ -6,8 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ChevronLeft, ChevronRight, BookOpen, Star, Clock } from "lucide-react"
-import { SocialShare } from "@/components/social-share"
-import { useModal } from "@/components/modal-context"
+import { SocialShare } from "@/components/for-referencing/social-share"
+import { useModal } from "@/components/for-referencing/modal-context"
 import { featuredBooksWithFallbacks } from "@/lib/document-data-with-github-fallbacks"
 
 export function FeaturedBooksSection() {

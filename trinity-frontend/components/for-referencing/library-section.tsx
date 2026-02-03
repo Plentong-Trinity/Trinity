@@ -7,8 +7,8 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Copy, BookOpen } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { SocialShare } from "@/components/social-share"
-import { useModal } from "@/components/modal-context"
+import { SocialShare } from "@/components/for-referencing/social-share"
+import { useModal } from "@/components/for-referencing/modal-context"
 import { allDocumentsWithFallbacks } from "@/lib/document-data-with-github-fallbacks"
 
 export function LibrarySection() {

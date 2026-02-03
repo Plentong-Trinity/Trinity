@@ -4,7 +4,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 import type { Metadata } from "next"
-import { RelatedArticles } from "@/components/related-articles" // Import the new component
+import { RelatedArticles } from "@/components/for-referencing/related-articles" // Import the new component
 
 export const metadata: Metadata = {
   title: "Echoes in the Dust: What 2,000 Years of Eyewitnesses Say About Jesus | Immutable",

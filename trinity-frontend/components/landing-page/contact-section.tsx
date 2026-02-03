@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Github, Mail, Send } from "lucide-react"
+import { Phone, Mail, Send, Facebook } from "lucide-react"
 
 // Initialize EmailJS with your user ID
 const initializeEmailJS = () => {
@@ -112,7 +112,7 @@ export function ContactSection() {
         <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           <Card className="bg-card/50 backdrop-blur-sm border-primary/20">
             <CardHeader>
-              <CardTitle>Share a Document</CardTitle>
+              <CardTitle>Send us an Email</CardTitle>
               <CardDescription>
                 Submit information about historical texts, Bible translations, or martyrs' testimonies you'd like to
                 contribute to the archive.
@@ -203,12 +203,13 @@ export function ContactSection() {
                 <CardDescription>Other ways to reach out and contribute to the Immutable project.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-full bg-primary/10">
-                    <Github className="h-5 w-5 text-primary" />
+                    <Phone className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <p className="font-medium">GitHub</p>
+                    <p className="font-medium">Phone</p>
                     <p className="text-muted-foreground">
                       <a
                         href="https://github.com/THookz/Immutable"
@@ -240,10 +241,10 @@ export function ContactSection() {
 
             <Card className="bg-primary/10 backdrop-blur-sm border-primary/20 flex-grow">
               <CardContent className="p-6">
-                <h3 className="text-xl font-semibold mb-4">Why Contribute?</h3>
+                <h3 className="text-xl font-semibold mb-4">Why St. Joseph?</h3>
                 <p className="text-muted-foreground mb-4">
-                  "And you shall know the truth, and the truth shall make you free."
-                  <span className="block mt-1 text-right">— John 8:32</span>
+                  "Then the king asked, 'What is it, Queen Esther? What is your request? Even up to half the kingdom, it will be given to you."
+                  <span className="block mt-1 text-right">— Esther 5:3</span>
                 </p>
                 <p className="text-muted-foreground">
                   By contributing to Immutable, you're helping preserve vital historical and spiritual knowledge for

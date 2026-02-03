@@ -4,7 +4,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 import type { Metadata } from "next"
-import { RelatedArticles } from "@/components/related-articles"
+import { RelatedArticles } from "@/components/for-referencing/related-articles"
 
 export const metadata: Metadata = {
   title: "EXPLOSIVE BIBLICAL TRUTH: The Hell Doctrine EXPOSED | Immutable",

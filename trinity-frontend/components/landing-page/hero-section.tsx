@@ -11,11 +11,12 @@ export function HeroSection() {
   const loopedBlogPosts = [...blogPosts, ...blogPosts]
 
   return (
-    <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-4 pt-16 overflow-x-hidden">
-      <div className="absolute inset-0 bg-gradient-to-b from-background/0 via-background/0 to-background z-0" />
+    <section id="hero" className="relative min-h-screen flex flex-col items-center justify-center text-center px-4 pt-16 overflow-x-hidden">
+      {/* <div className="absolute inset-0 bg-gradient-to-b from-background/0 via-background/0 to-background z-0" /> */}
+      <div className="absolute inset-0 bg-[url(/Images/ikun.jpg)] blur-sm bg-cover bg-no-repeat brightness-[0.8]" />
 
       <div className="container mx-auto max-w-5xl z-10 flex flex-col items-center">
-        <div className="mb-6 relative w-64 h-64 md:w-80 md:h-80">
+        {/* <div className="mb-6 relative w-64 h-64 md:w-80 md:h-80">
           <Image
             src="/Images/ikun.jpg"
             alt="Immutable Logo"
@@ -24,13 +25,13 @@ export function HeroSection() {
             className="object-contain"
             priority
           />
-        </div>
+        </div> */}
 
-        <h1 className="text-4xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+        <h1 className="text-4xl md:text-6xl p-2 font-bold mb-4 bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
           Plentong全靠我
         </h1>
 
-        <p className="text-xl md:text-2xl mb-8 max-w-2xl">Truth Preserved. Censorship Resisted.</p>
+        <p className="text-xl md:text-2xl mb-8 max-w-2xl">Truth Reserved.</p>
 
         <p className="text-lg mb-10 max-w-2xl text-muted-foreground">
           A decentralized archive preserving censored history, martyrs' testimonies, Bible translations, prophecy
@@ -38,7 +39,8 @@ export function HeroSection() {
         </p>
 
         {/* Rolling Articles Section */}
-        <div className="w-full max-w-6xl my-8">
+        {/* Can be used as Gallery Section in the future */}
+        {/* <div className="w-full max-w-6xl my-8">
           <h3 className="text-lg font-bold text-primary mb-4 text-center">MUST READS</h3>
           <div className="relative w-full overflow-hidden bg-primary/5 p-4 rounded-lg border border-primary/20 backdrop-blur-sm">
             <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-background via-transparent to-background" />
@@ -66,9 +68,9 @@ export function HeroSection() {
               ))}
             </div>
           </div>
-        </div>
+        </div> */}
 
-        <div className="mb-8 p-4 bg-primary/10 backdrop-blur-sm border border-primary/20 rounded-lg max-w-2xl">
+        {/* <div className="mb-8 p-4 bg-primary/10 backdrop-blur-sm border border-primary/20 rounded-lg max-w-2xl">
           <p className="text-sm text-muted-foreground mb-2">
             <strong className="text-primary">Access Notice:</strong> Due to regional restrictions and ISP limitations,
             some IPFS links may require alternative connection methods.
@@ -85,9 +87,9 @@ export function HeroSection() {
             </a>{" "}
             for unrestricted access to preserved documents.
           </p>
-        </div>
+        </div> */}
 
-        <div className="flex justify-center">
+        {/* <div className="flex justify-center">
           <Button size="lg" asChild>
             <a
               href="#library"
@@ -102,13 +104,39 @@ export function HeroSection() {
               Explore Library
             </a>
           </Button>
-        </div>
-      </div>
+        </div> */}
 
-      <div className="absolute bottom-8 left-0 right-0 flex justify-center animate-bounce">
-        <a href="#about" aria-label="Scroll to About section">
-          <ChevronDown className="h-8 w-8 text-primary" />
-        </a>
+        <div className="flex justify-center animate-bounce">
+          <a 
+            href="#about"
+            onClick={(e) => {
+                  e.preventDefault()
+                  document.getElementById("about")?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                  })
+                }}
+            aria-label="Scroll to About section">
+            <ChevronDown className="h-8 w-8 text-primary"/>
+          </a>
+        </div>
+
+        <div className="flex justify-center">
+          <Button size="lg" asChild>
+            <a
+              href="#about"
+              onClick={(e) => {
+                e.preventDefault()
+                document.getElementById("about")?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "start",
+                })
+              }}
+            >
+              About Us
+            </a>
+          </Button>
+        </div>
       </div>
     </section>
   )
