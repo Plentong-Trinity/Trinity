@@ -98,7 +98,7 @@ function NavLinks({ mobile = false, scrollToSection, onClick }: { mobile?: boole
       <a href="/bulletin" className={linkClass} onClick={onClick}>
         Bulletin
       </a>
-      <Link href="/blog" className={linkClass} onClick={onClick}>
+      <Link href="/room-booking" className={linkClass} onClick={onClick}>
         Room Booking
       </Link>
       <a href="/login" className={linkClass} onClick={onClick}>
