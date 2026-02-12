@@ -2,11 +2,25 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuPortal,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { ModeToggle } from "@/components/for-referencing/mode-toggle"
 
 export function Navbar() {
@@ -84,6 +98,21 @@ function NavLinks({ mobile = false, scrollToSection, onClick }: { mobile?: boole
     ? "block py-2 text-foreground hover:text-primary transition-colors"
     : "hover:text-primary transition-colors"
 
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  const openDropdown = () => {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current)
+      closeTimeoutRef.current = null
+    }
+    setIsDropdownOpen(true)
+  }
+
+  const closeDropdown = () => {
+    closeTimeoutRef.current = setTimeout(() => setIsDropdownOpen(false), 100)
+  }
+
   return (
     <>
       <a href="#about" className={`${linkClass}`} onClick={(e) => scrollToSection(e, "about")}>
@@ -98,9 +127,40 @@ function NavLinks({ mobile = false, scrollToSection, onClick }: { mobile?: boole
       <a href="/bulletin" className={linkClass} onClick={onClick}>
         Bulletin
       </a>
-      <Link href="/blog" className={linkClass} onClick={onClick}>
-        Room Booking
-      </Link>
+      {/* <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen} >
+        <DropdownMenuTrigger asChild>
+                <div className={linkClass} onClick={(e) => { e.preventDefault(); onClick?.(); }} onMouseEnter={openDropdown} onMouseLeave={closeDropdown}>Room Booking</div>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-40" align="start" onMouseEnter={openDropdown} onMouseLeave={closeDropdown}>
+          <DropdownMenuGroup>
+            <DropdownMenuItem asChild>
+              <Link className="max-h-60 overflow-y-auto [scrollbar-gutter:stable]"href="/blog" className={linkClass} onClick={(e) => { e.preventDefault(); onClick?.(); }} onMouseEnter={openDropdown} onMouseLeave={closeDropdown}>
+              Booking
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem>
+              Overview
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu> */}
+      <div onMouseLeave={closeDropdown}>
+        <DropdownMenu modal={false} open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
+          <DropdownMenuTrigger asChild onMouseEnter={openDropdown}>
+            <div className={linkClass}>Room Booking</div>
+          </DropdownMenuTrigger>
+
+          <DropdownMenuContent className="w-40" align="start" onMouseEnter={openDropdown} onMouseLeave={closeDropdown}>
+            <DropdownMenuItem asChild onMouseEnter={openDropdown} onMouseLeave={closeDropdown}>
+              <Link href="/blog" className={linkClass}>Booking</Link>
+            </DropdownMenuItem>
+
+            <DropdownMenuItem asChild onMouseEnter={openDropdown} onMouseLeave={closeDropdown}>
+              <Link href="/blog" className={linkClass}>Overview</Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
       <a href="/login" className={linkClass} onClick={onClick}>
         <button
           className={linkClass + " bg-primary text-white px-4 py-2 rounded-md hover:text-black hover:bg-red-200 transition-colors"}
