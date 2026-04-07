@@ -10,7 +10,7 @@ export default function LoginLayout({
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <Navbar />
-      <main className="flex-grow pt-24 md:pt-28">{children}</main>
+      <main className="flex-grow pt-[var(--navbar-height)]">{children}</main>
       <Footer />
     </div>
   )

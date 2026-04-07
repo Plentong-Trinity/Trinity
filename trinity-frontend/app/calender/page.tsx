@@ -115,7 +115,7 @@ export default function EventCalendarPage() {
 
   const handleDayClick = (date: Date) => {
     setSelectedDate(date)
-    setIsDayDialogOpen(true)
+    // setIsDayDialogOpen(true)
   }
 
   const handleEventClick = (event: CalendarEvent, e: React.MouseEvent) => {
@@ -164,6 +164,7 @@ export default function EventCalendarPage() {
               const dayEvents = getEventsForDate(date, sampleEvents)
               const isCurrentMonth = date.getMonth() === month
               const isTodayDate = isToday(date)
+              const isSelected = selectedDate && isSameDay(date, selectedDate)
 
               return (
                 <button
@@ -171,8 +172,15 @@ export default function EventCalendarPage() {
                   key={index}
                   onClick={() => handleDayClick(date)}
                   className={cn(
-                    "min-h-24 md:min-h-28 border-b border-r last:border-r-0 [&:nth-child(7n)]:border-r-0 p-1 md:p-2 text-left transition-colors hover:bg-muted/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-inset",
-                    !isCurrentMonth && "bg-muted/30"
+                    "min-h-24 md:min-h-28 border-b border-r last:border-r-0 [&:nth-child(7n)]:border-r-0 p-1 md:p-2 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-inset",
+
+                    !isCurrentMonth && "bg-muted/30",
+
+                    // 👇 selected day (blue)
+                    isSelected && "bg-blue-100 text-blue-700 border border-blue-300",
+
+                    // 👇 normal hover (only if NOT selected)
+                    !isSelected && "hover:bg-muted/50"
                   )}
                 >
                   <div className="flex items-start justify-between">

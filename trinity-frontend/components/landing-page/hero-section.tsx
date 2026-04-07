@@ -11,7 +11,7 @@ export function HeroSection() {
   const loopedBlogPosts = [...blogPosts, ...blogPosts]
 
   return (
-    <section id="hero" className="relative min-h-screen flex flex-col items-center justify-center text-center px-4 pt-16 overflow-x-hidden">
+    <section id="hero" className="relative min-h-screen flex flex-col items-center justify-center text-center px-4 pt-[var(--navbar-height)] overflow-x-hidden">
       {/* <div className="absolute inset-0 bg-gradient-to-b from-background/0 via-background/0 to-background z-0" /> */}
       <div className="absolute inset-0 bg-[url(/Images/ikun.jpg)] blur-sm bg-cover bg-no-repeat brightness-[0.8]" />
 

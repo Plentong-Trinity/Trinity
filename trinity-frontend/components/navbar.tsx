@@ -28,14 +28,30 @@ export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false)
   const pathname = usePathname();
   const isHome = pathname === "/";
+  const navRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10)
     }
 
+    handleScroll()
     window.addEventListener("scroll", handleScroll)
     return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
+
+  useEffect(() => {
+    const updateHeight = () => {
+      if (navRef.current) {
+        const height = navRef.current.offsetHeight
+        document.documentElement.style.setProperty('--navbar-height', `${height}px`)
+      }
+    }
+
+    updateHeight()
+
+    window.addEventListener('resize', updateHeight)
+    return () => window.removeEventListener('resize', updateHeight)
   }, [])
 
   const scrollToSection = (e: React.MouseEvent<HTMLAnchorElement>, sectionId: string) => {
@@ -52,12 +68,13 @@ export function Navbar() {
 
   return (
     <nav
+      ref={navRef}
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isHome
-          ? isScrolled
-            ? "bg-background/90 backdrop-blur-md shadow-md"
-            : "bg-transparent"
-          : "bg-background shadow-md"
+      isHome
+        ? isScrolled
+        ? "bg-background/90 backdrop-blur-md shadow-md"
+        : "bg-transparent"
+        : "bg-background shadow-md"
       }`}
     >
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
