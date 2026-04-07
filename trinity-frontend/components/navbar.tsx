@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-
+import { usePathname } from "next/navigation";
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import Image from "next/image"
@@ -26,6 +26,8 @@ import { ModeToggle } from "@/components/for-referencing/mode-toggle"
 export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
+  const pathname = usePathname();
+  const isHome = pathname === "/";
 
   useEffect(() => {
     const handleScroll = () => {
@@ -51,7 +53,11 @@ export function Navbar() {
   return (
     <nav
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled ? "bg-background/90 backdrop-blur-md shadow-md" : "bg-transparent"
+        isHome
+          ? isScrolled
+            ? "bg-background/90 backdrop-blur-md shadow-md"
+            : "bg-transparent"
+          : "bg-background shadow-md"
       }`}
     >
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
@@ -68,7 +74,12 @@ export function Navbar() {
           <span className="text-xl font-bold text-primary">Church of St. Joseph, Plentong</span>
         </Link>
 
-        <div className={`hidden md:flex items-center gap-6 ${isScrolled ? "text-black" : "text-white"}`}>
+        <div className={`hidden md:flex items-center gap-6 
+        ${isHome 
+          ? isScrolled 
+            ?"text-black" 
+            : "text-white"
+          :"text-black"}`}>
           <NavLinks scrollToSection={scrollToSection} />
           <ModeToggle />
         </div>
@@ -152,11 +163,15 @@ function NavLinks({ mobile = false, scrollToSection, onClick }: { mobile?: boole
 
           <DropdownMenuContent className="w-40" align="start" onMouseEnter={openDropdown} onMouseLeave={closeDropdown}>
             <DropdownMenuItem asChild onMouseEnter={openDropdown} onMouseLeave={closeDropdown}>
-              <Link href="/blog" className={linkClass}>Booking</Link>
+              <Link href="/room-booking" className={linkClass}>Booking</Link>
             </DropdownMenuItem>
 
             <DropdownMenuItem asChild onMouseEnter={openDropdown} onMouseLeave={closeDropdown}>
               <Link href="/blog" className={linkClass}>Overview</Link>
+            </DropdownMenuItem>
+
+            <DropdownMenuItem asChild onMouseEnter={openDropdown} onMouseLeave={closeDropdown}>
+              <Link href="/calender" className={linkClass}>Calender</Link>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
