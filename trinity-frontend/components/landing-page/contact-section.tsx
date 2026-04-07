@@ -239,7 +239,7 @@ export function ContactSection() {
               </CardContent>
             </Card>
 
-            <Card className="bg-primary/10 backdrop-blur-sm border-primary/20 flex-grow">
+            {/* <Card className="bg-primary/10 backdrop-blur-sm border-primary/20 flex-grow">
               <CardContent className="p-6">
                 <h3 className="text-xl font-semibold mb-4">Why St. Joseph?</h3>
                 <p className="text-muted-foreground mb-4">
@@ -251,7 +251,7 @@ export function ContactSection() {
                   future generations, ensuring that truth remains accessible despite censorship or manipulation.
                 </p>
               </CardContent>
-            </Card>
+            </Card> */}
           </div>
         </div>
       </div>

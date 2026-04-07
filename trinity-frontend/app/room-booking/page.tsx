@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import Image from "next/image";
 
 // Fixed Room layout with complete borders
 const ROOM_DATA = [
@@ -17,11 +18,13 @@ const ROOM_DATA = [
   { id: 'T', label: 'Toilet', grid: 'col-start-1 row-start-5 bg-slate-5 row-span-2', isService: true , style:'my-1'},
   // { id: 'E7', label:'' , grid: 'col-start-4 row-start-1 row-span-4 bg-slate-50', isService: true, style:'my-1' },
   { id: '8', label: 'Room 8', grid: 'col-start-3 row-start-4 row-span-3', style:'my-1' },
-  { id: '7', label: 'Room 7', grid: 'col-start-4 row-start-5 row-span-2', style:'my-1 ml-1 mr-0.5' },
-  { id: '6', label: 'Room 6', grid: 'col-start-5 row-start-5 row-span-2', style:'my-1 mx-0.5' },
+  { id: '7', label: 'Room 7', grid: 'col-start-4 col-span-2 row-start-5 row-span-2', style:'my-1 ml-1 mr-0.5' },
+  { id: '6', label: 'Room 6', grid: 'col-start-6 col-span-2 row-start-5 row-span-2', style:'my-1 mx-0.5' },
   { id: '4', label: 'Room 4', grid: 'col-start-7 row-start-1 row-span-2', style:'my-1' },
   { id: '5', label: 'Room 5', grid: 'col-start-8 row-start-1 row-span-2', style:'my-1' },
   { id: 'PH', label: 'Parish House', grid: 'col-start-9 col-span-2 row-start-1 row-span-2 bg-slate-50', isService: true, style:'my-1 mx-1' },
+  { id: 'WL1', label: 'WALL1', grid: 'col-start-4 col-span-2 row-start-1 row-span-4 bg-slate-50', isService: true, style:'my-1 mx-1' },
+  { id: 'ST', label: 'Staircase', grid: 'col-start-6 col-span-1 row-start-1 row-span-4 bg-slate-50', isService: true, style:'my-1 mx-0.5' },
 ];
 
 export default function BookingPage() {
@@ -58,7 +61,7 @@ export default function BookingPage() {
           <CardContent>
             <div className="relative border border-slate-300 p-8 bg-white rounded-md overflow-x-auto">
               {/* Using a grid with gap to ensure distinct borders for every room */}
-              <div className="grid grid-cols-9 grid-rows-6 min-w-[600px] h-[350px]">
+              <div className="grid grid-cols-10 grid-rows-6 min-w-[600px] h-[350px]">
                 {ROOM_DATA.map((room) => (
                   <button
                     key={room.id}
@@ -85,7 +88,21 @@ export default function BookingPage() {
                                     : 'bg-white text-slate-800'
                                 }
                               `}>
-                    {room.label}
+                    <div className="flex flex-col items-center justify-center">
+                      {room.id === "ST" ? (
+                        <div className="relative w-full h-full">
+                          <Image
+                            src="/images/staircase.png"
+                            alt="Staircase"
+                            fill
+                            className="object-contain p-2"
+                          />
+                        </div>
+                        ) : (
+                          <span>{room.label}</span>
+                        )}
+                    </div>
+                    {/* {room.label} */}
                   </button>
                 ))}
               </div>
@@ -143,7 +160,9 @@ export default function BookingPage() {
           </CardContent>
           <CardFooter>
             <Button className="w-full" disabled={selectedRooms.length === 0}>
-              Submit to Office
+              <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                <line x1="0" y1="80" x2="100" y2="20" stroke="black" />
+              </svg>Submit to Office
             </Button>
           </CardFooter>
         </Card>
