@@ -23,18 +23,24 @@ interface CalendarEvent {
   description?: string
 }
 
+function createDate(year: number, month: number, day: number) {
+  return new Date(year, month - 1, day) // 👈 convert 1–12 → 0–11
+}
+
 const sampleEvents: CalendarEvent[] = [
-  { id: "1", title: "Team Meeting", date: new Date(2026, 1, 3), color: "blue", time: "10:00 AM - 11:00 AM", location: "Conference Room A", description: "Weekly team sync to discuss project progress and blockers." },
-  { id: "2", title: "Project Deadline", date: new Date(2026, 1, 5), color: "red", time: "5:00 PM", description: "Final submission for the Q1 project deliverables." },
-  { id: "3", title: "Lunch with Client", date: new Date(2026, 1, 10), color: "green", time: "12:30 PM - 2:00 PM", location: "Downtown Bistro", description: "Discuss partnership opportunities with Acme Corp." },
-  { id: "4", title: "Code Review", date: new Date(2026, 1, 10), color: "blue", time: "3:00 PM - 4:00 PM", location: "Virtual", description: "Review PR #1234 for the new authentication feature." },
-  { id: "5", title: "Workshop", date: new Date(2026, 1, 15), color: "orange", time: "9:00 AM - 12:00 PM", location: "Training Room", description: "Advanced React patterns and performance optimization workshop." },
-  { id: "6", title: "Sprint Planning", date: new Date(2026, 1, 18), color: "blue", time: "2:00 PM - 4:00 PM", location: "Conference Room B", description: "Plan tasks and priorities for Sprint 12." },
-  { id: "7", title: "Product Launch", date: new Date(2026, 1, 22), color: "green", time: "10:00 AM", location: "Main Auditorium", description: "Official launch event for our new product line." },
-  { id: "8", title: "Quarterly Review", date: new Date(2026, 1, 28), color: "red", time: "1:00 PM - 3:00 PM", location: "Board Room", description: "Q1 performance review with leadership team." },
-  { id: "9", title: "Design Review", date: new Date(2026, 1, 3), color: "orange", time: "2:00 PM - 3:00 PM", location: "Design Lab", description: "Review mockups for the new dashboard redesign." },
-  { id: "10", title: "1:1 with Manager", date: new Date(2026, 1, 12), color: "blue", time: "4:00 PM - 4:30 PM", location: "Office 302", description: "Bi-weekly check-in to discuss career development." },
+  { id: "1", title: "Team Meeting", date: createDate(2026, 1, 3), color: "blue", time: "10:00 AM - 11:00 AM", location: "Conference Room A", description: "Weekly team sync to discuss project progress and blockers." },
+  { id: "2", title: "Project Deadline", date: createDate(2026, 1, 5), color: "red", time: "5:00 PM", description: "Final submission for the Q1 project deliverables." },
+  { id: "3", title: "Lunch with Client", date: createDate(2026, 1, 10), color: "green", time: "12:30 PM - 2:00 PM", location: "Downtown Bistro", description: "Discuss partnership opportunities with Acme Corp." },
+  { id: "4", title: "Code Review", date: createDate(2026, 1, 10), color: "blue", time: "3:00 PM - 4:00 PM", location: "Virtual", description: "Review PR #1234 for the new authentication feature." },
+  { id: "5", title: "Workshop", date: createDate(2026, 1, 15), color: "orange", time: "9:00 AM - 12:00 PM", location: "Training Room", description: "Advanced React patterns and performance optimization workshop." },
+  { id: "6", title: "Sprint Planning", date: createDate(2026, 2, 18), color: "blue", time: "2:00 PM - 4:00 PM", location: "Conference Room B", description: "Plan tasks and priorities for Sprint 12." },
+  { id: "7", title: "Product Launch", date: createDate(2026, 2, 22), color: "green", time: "10:00 AM", location: "Main Auditorium", description: "Official launch event for our new product line." },
+  { id: "8", title: "Quarterly Review", date: createDate(2026, 2, 28), color: "red", time: "1:00 PM - 3:00 PM", location: "Board Room", description: "Q1 performance review with leadership team." },
+  { id: "9", title: "Design Review", date: createDate(2026, 2, 3), color: "orange", time: "2:00 PM - 3:00 PM", location: "Design Lab", description: "Review mockups for the new dashboard redesign." },
+  { id: "10", title: "1:1 with Manager", date: createDate(2026, 2, 12), color: "blue", time: "4:00 PM - 4:30 PM", location: "Office 302", description: "Bi-weekly check-in to discuss career development." },
+  { id: "11", title: "王者", date: createDate(2026, 3, 12), color: "blue", time: "4:00 PM - 4:30 PM", location: "Office 302", description: "Bi-weekly check-in to discuss career development." },
 ]
+
 
 const eventColorStyles = {
   blue: "bg-blue-100 text-blue-700 border-blue-200",
@@ -61,6 +67,18 @@ function getEventsForDate(date: Date, events: CalendarEvent[]) {
   return events.filter((event) => isSameDay(event.date, date))
 }
 
+function getFutureEventDates(selectedDate: Date | null, events: CalendarEvent[]) {
+  if (!selectedDate) return new Set<string>()
+
+  return new Set(
+    events
+      .filter((event) => event.date > selectedDate)
+      .map((event) =>
+        `${event.date.getFullYear()}-${event.date.getMonth()}-${event.date.getDate()}`
+      )
+  )
+}
+
 function getDaysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate()
 }
@@ -68,6 +86,7 @@ function getDaysInMonth(year: number, month: number) {
 function getFirstDayOfMonth(year: number, month: number) {
   return new Date(year, month, 1).getDay()
 }
+
 
 export default function EventCalendarPage() {
   const [currentDate, setCurrentDate] = React.useState(new Date(2026, 1, 1))
@@ -114,9 +133,18 @@ export default function EventCalendarPage() {
   }
 
   const handleDayClick = (date: Date) => {
-    setSelectedDate(date)
-    // setIsDayDialogOpen(true)
-  }
+  setSelectedDate((prev) => {
+    if (prev && isSameDay(prev, date)) {
+      return null
+    }
+    return date
+  })
+}
+
+  // const handleDayClick = (date: Date) => {
+  //   setSelectedDate(date)
+  //   // setIsDayDialogOpen(true)
+  // }
 
   const handleEventClick = (event: CalendarEvent, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -125,6 +153,7 @@ export default function EventCalendarPage() {
   }
 
   const selectedDateEvents = selectedDate ? getEventsForDate(selectedDate, sampleEvents) : []
+  const futureEventDates = getFutureEventDates(selectedDate, sampleEvents)
 
   return (
     <main className="min-h-screen bg-muted/30 p-4 md:p-6">
@@ -165,6 +194,9 @@ export default function EventCalendarPage() {
               const isCurrentMonth = date.getMonth() === month
               const isTodayDate = isToday(date)
               const isSelected = selectedDate && isSameDay(date, selectedDate)
+              const isFutureEventDate = futureEventDates.has(
+                `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
+              )
 
               return (
                 <button
@@ -179,8 +211,11 @@ export default function EventCalendarPage() {
                     // 👇 selected day (blue)
                     isSelected && "bg-blue-100 text-blue-700 border border-blue-300",
 
-                    // 👇 normal hover (only if NOT selected)
-                    !isSelected && "hover:bg-muted/50"
+                    // 👇 ALL future event dates (red)
+                    !isSelected && isFutureEventDate && "bg-red-100 text-red-700 border border-red-300",
+
+                    // normal
+                    !isSelected && !isFutureEventDate && "hover:bg-muted/50"
                   )}
                 >
                   <div className="flex items-start justify-between">

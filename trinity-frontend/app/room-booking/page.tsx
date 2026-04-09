@@ -1,12 +1,20 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation"; // Correct import for App Router
 import Link from "next/link";
-import { ArrowLeft, MapPin, Users, Calendar, Clock, AlertTriangle, ChevronRight } from "lucide-react";
+import { ArrowLeft, MapPin, Users, Calendar, Clock, AlertTriangle, ChevronRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
 import Image from "next/image";
 
 // Fixed Room layout with complete borders - Floor 1
@@ -49,8 +57,11 @@ const ROOM_DATA_FLOOR_2 = [
 ];
 
 export default function BookingPage() {
+  const router = useRouter();
   const [selectedRooms, setSelectedRooms] = useState<string[]>([]);
   const [currentFloor, setCurrentFloor] = useState<'floor1' | 'floor2'>('floor1');
+  const [isBookingDialogOpen, setIsBookingDialogOpen] = useState(false);
+  const [loadingType, setLoadingType] = useState<'single' | 'multi' | null>(null);
 
   const roomData = currentFloor === 'floor1' ? ROOM_DATA_FLOOR_1 : ROOM_DATA_FLOOR_2;
 
@@ -59,6 +70,24 @@ export default function BookingPage() {
     setSelectedRooms((prev) =>
       prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]
     );
+  };
+
+  const handleBooking = async (type: 'single' | 'multi') => {
+    setLoadingType(type);
+    
+    // Simulate API call or navigation delay
+    if (type === 'single') {
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate 1 second delay
+    } else {
+      router.push('/calendar');
+      return; // Exit early since we're navigating away
+    }
+
+    console.log(`Navigating to ${type} booking for:`, selectedRooms);
+    
+    // Reset loading state (or navigate away)
+    setLoadingType(null);
+    setIsBookingDialogOpen(false);
   };
 
   return (
@@ -152,12 +181,55 @@ export default function BookingPage() {
             </div>
             <button
               disabled={selectedRooms.length === 0}
+              onClick={() => setIsBookingDialogOpen(true)}
               className="ml-auto bg-primary text-primary-foreground px-4 py-2 rounded-md transition duration-200 ease-in-out hover:bg-primary/90 active:scale-95 active:bg-primary/80 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Proceed to Booking
             </button>
           </CardFooter>
         </Card>
+
+        {/* --- Booking Type Selection Dialog --- */}
+        <Dialog open={isBookingDialogOpen} onOpenChange={setIsBookingDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Choose Booking Type</DialogTitle>
+              <DialogDescription>
+                You have selected: <span className="font-bold text-foreground">{selectedRooms.join(", ")}</span>.
+                Would you like to book for a single day or a range of dates?
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <Button 
+                variant="outline" 
+                className="flex flex-col h-24 gap-2"
+                onClick={() => 
+                  handleBooking('single')
+                }
+              >
+                {loadingType === 'single' ? (
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                ) : (
+                  <Clock className="h-6 w-6 text-primary" />
+                )}
+                <span>Single Day</span>
+              </Button>
+              <Button 
+                variant="outline" 
+                className="flex flex-col h-24 gap-2"
+                onClick={() => {
+                  handleBooking('multi');}}
+              >
+                {loadingType === 'multi' ? (
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                ) : (
+                  <Calendar className="h-6 w-6 text-primary" />
+                )}
+                <span>Multiple Days</span>
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
