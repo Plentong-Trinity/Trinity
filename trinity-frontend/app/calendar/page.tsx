@@ -13,6 +13,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 import { Toaster, toast } from "sonner"
+import { useRouter } from "next/navigation"
 
 interface CalendarEvent {
   id: string
@@ -145,6 +146,9 @@ export default function EventCalendarPage() {
   const [isEventDialogOpen, setIsEventDialogOpen] = React.useState(false)
   const toastIdRef = React.useRef<string | number | null>(null)
   const endDateToastIdRef = React.useRef<string | number | null>(null)
+  const [startTime, setStartTime] = React.useState<string>("09:00");
+  const [endTime, setEndTime] = React.useState<string>("18:00");
+  const router = useRouter()
 
   React.useEffect(() => {
     // Show toast only once on mount
@@ -275,6 +279,54 @@ export default function EventCalendarPage() {
       setIsDayDialogOpen(true);
     }
   }
+
+  const generateTimeSlots = () => {
+    const slots = [];
+    for (let hour = 9; hour < 24; hour++) {
+      for (let min of ["00", "30"]) {
+        slots.push(`${hour.toString().padStart(2, '0')}:${min}`);
+      }
+    }
+    return slots;
+  };
+
+  const getAvailableTimes = (targetDate: Date, type: 'start' | 'end') => {
+    const allSlots = generateTimeSlots();
+    const dayEvents = getEventsForDate(targetDate, sampleEvents);
+
+    if (dayEvents.length === 0 && type === 'start') return allSlots.filter(slot => {
+      const [h, m] = slot.split(':').map(Number);
+      return h <= 22 && (h < 22 || m === 0); // Allow booking until 10 PM if no events
+    });
+    
+    if (dayEvents.length === 0 && type === 'end') return allSlots.filter(slot => {
+      const [h, m] = slot.split(':').map(Number);
+      return h >= 9 && (h > 9 || m === 0); // Allow booking starting from 9 AM if no events
+    });
+
+    if (type === 'start') {
+      // Start time must be AFTER the last event of that day ends
+      const lastEventEnd = dayEvents[dayEvents.length - 1].end_time;
+      const minHour = Math.max(lastEventEnd.getHours(), 9); // Assuming bookings can only start after 9 AM
+      const minMin = lastEventEnd.getMinutes();
+      
+
+      return allSlots.filter(slot => {
+        const [h, m] = slot.split(':').map(Number);
+        return h > minHour || (h === minHour && m >= minMin);
+      });
+    } else {
+      // End time must be BEFORE the first event of that day starts
+      const firstEventStart = dayEvents[0].start_time;
+      const maxHour = Math.min(firstEventStart.getHours(), 23); // Assuming bookings can only end before 6 PM
+      const maxMin = firstEventStart.getMinutes();
+
+      return allSlots.filter(slot => {
+        const [h, m] = slot.split(':').map(Number);
+        return h < maxHour || (h === maxHour && m <= maxMin);
+      });
+    }
+};
 
   const isConstraintDay = (date: Date) => {
     return nextConstraint && isSameDay(date, nextConstraint.start_time);
@@ -476,16 +528,52 @@ export default function EventCalendarPage() {
             </DialogTitle>
             <DialogDescription className="pt-2">
               {startDate && endDate ? (
-                <div className="rounded-lg bg-muted p-4 text-foreground">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium text-muted-foreground">From:</span>
-                    <span className="font-semibold">{startDate.toLocaleDateString("en-US", { dateStyle: 'long' })}</span>
+                <div className="space-y-4">
+                  {/* Date Summary Card */}
+                  <div className="rounded-lg bg-muted p-4 text-foreground">
+                    <div className="flex justify-between items-center mb-2 text-sm">
+                      <span className="font-medium text-muted-foreground">From:</span>
+                      <span className="font-semibold">{startDate.toLocaleDateString("en-US", { dateStyle: 'long' })}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="font-medium text-muted-foreground">Until:</span>
+                      <span className="font-semibold">{endDate.toLocaleDateString("en-US", { dateStyle: 'long' })}</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-muted-foreground">Until:</span>
-                    <span className="font-semibold">{endDate.toLocaleDateString("en-US", { dateStyle: 'long' })}</span>
+
+                  {/* Time Selectors Section */}
+                  <div className="grid grid-cols-2 gap-4 border-t pt-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase text-muted-foreground flex items-center gap-1">
+                        <Clock className="size-3" /> Start Time
+                      </label>
+                      <select 
+                        className="w-full bg-background border rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-500"
+                        value={startTime}
+                        onChange={(e) => setStartTime(e.target.value)}
+                      >
+                        {getAvailableTimes(startDate, 'start').map(time => (
+                          <option key={time} value={time}>{time}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase text-muted-foreground flex items-center gap-1">
+                        <Clock className="size-3" /> End Time
+                      </label>
+                      <select 
+                        className="w-full bg-background border rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-500"
+                        value={endTime}
+                        onChange={(e) => setEndTime(e.target.value)}
+                      >
+                        {getAvailableTimes(endDate, 'end').map(time => (
+                          <option key={time} value={time}>{time}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
-                  <div className="mt-4 border-t pt-2 text-center text-xs text-blue-600 font-medium">
+
+                  <div className="mt-2 border-t pt-2 text-center text-xs text-blue-600 font-medium">
                     Total Duration: {Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1} Day(s)
                   </div>
                 </div>
@@ -500,10 +588,10 @@ export default function EventCalendarPage() {
               className="w-full bg-blue-600 hover:bg-blue-700" 
               onClick={() => {
                 toast.success("Booking range confirmed!", {
-                  description: `Scheduled from ${startDate?.toLocaleDateString()} to ${endDate?.toLocaleDateString()}`
+                  description: `Scheduled from ${startDate?.toLocaleDateString()} ${startTime} to ${endDate?.toLocaleDateString()} ${endTime}`
                 });
                 setIsDayDialogOpen(false);
-                // Here you would typically navigate to a checkout page or call an API
+                router.push("/form") // Example: navigate to a confirmation page after booking
               }}
             >
               Yes, Proceed with Booking

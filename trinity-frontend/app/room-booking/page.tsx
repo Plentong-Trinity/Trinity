@@ -115,9 +115,20 @@ export default function BookingPage() {
     console.log("Single day booking confirmed for:", selectedSingleDate);
     setLoadingType(null);
     setIsSingleDayCalendarOpen(false);
+    
+    if (selectedSingleDate) {
+      // Save selected rooms to session storage
+      sessionStorage.setItem("selectedRooms", JSON.stringify(selectedRooms));
+      
+      const year = selectedSingleDate.getFullYear();
+      const month = String(selectedSingleDate.getMonth() + 1).padStart(2, '0');
+      const day = String(selectedSingleDate.getDate()).padStart(2, '0');
+      const dateString = `${year}-${month}-${day}`;
+      router.push(`/day-view?date=${dateString}`);
+    }
+    
     setSelectedSingleDate(null);
     setCalendarMonth(new Date());
-    router.push('/day-view');
     // Navigate to checkout or next step
     // router.push('/checkout');
   };
@@ -234,10 +245,20 @@ export default function BookingPage() {
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle>Choose Booking Type</DialogTitle>
-              <DialogDescription>
-                You have selected: <span className="font-bold text-foreground">{selectedRooms.join(", ")}</span>.
-                Would you like to book for a single day or a range of dates?
-              </DialogDescription>
+              <div className="space-y-2">
+                <p className="text-sm text-gray-600">You have selected:</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {selectedRooms.map((room) => (
+                    <div
+                      key={room}
+                      className="bg-primary text-primary-foreground px-3 py-1 rounded text-sm font-medium text-center"
+                    >
+                      {room}
+                    </div>
+                  ))}
+                </div>
+                <p className="text-sm text-gray-600">Would you like to book for a single day or a range of dates?</p>
+              </div>
             </DialogHeader>
             <div className="grid grid-cols-2 gap-4 py-4">
               <Button 

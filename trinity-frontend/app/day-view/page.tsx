@@ -1,114 +1,242 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button } from "@/components/ui/button"
+import { useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Clock } from "lucide-react";
 
-type CalendarEvent = {
+type RoomEvent = {
   id: number;
   title: string;
   start: string;
   end: string;
-  color: string;
-  textColor: string;
+  group: 1 | 2 | 3 | 4;
 };
 
-type PositionedEvent = CalendarEvent & {
+type RoomSchedule = {
+  id: string;
+  name: string;
+  events: RoomEvent[];
+};
+
+type PositionedEvent = RoomEvent & {
   col: number;
   totalCols: number;
 };
 
-type AllDayEvent = {
-  id: number;
-  title: string;
-  color: string;
-  textColor: string;
+type SchedulePayload = {
+  date?: string; // "YYYY-MM-DD"
+  rooms: RoomSchedule[];
 };
 
 type CalendarHeaderProps = {
   date: Date;
-  onPrev: () => void;
-  onNext: () => void;
-  onToday: () => void;
 };
 
-type AllDayBannerProps = {
-  events: AllDayEvent[];
+type RoomColumnProps = {
+  room: RoomSchedule;
+  isToday: boolean;
 };
 
 type EventBlockProps = {
   event: PositionedEvent;
 };
 
-type TimeGridProps = {
-  events: CalendarEvent[];
-  isToday: boolean;
-};
-
-const HOUR_HEIGHT = 60;
-const START_HOUR = 0;
-const END_HOUR = 24;
+const HOUR_HEIGHT = 64;
+const START_HOUR = 9;
+const END_HOUR = 22;
 const TOTAL_MINUTES = (END_HOUR - START_HOUR) * 60;
 const HOURS = Array.from(
   { length: END_HOUR - START_HOUR + 1 },
   (_, i) => i + START_HOUR
 );
 
-const SAMPLE_EVENTS: CalendarEvent[] = [
-  {
-    id: 1,
-    title: "Dentist appt.",
-    start: "08:00",
-    end: "09:30",
-    color: "#E8914A",
-    textColor: "#7A3D10",
-  },
-  {
-    id: 2,
-    title: "Client calls",
-    start: "11:00",
-    end: "13:00",
-    color: "#5B8A3C",
-    textColor: "#2A4A17",
-  },
-  {
-    id: 3,
-    title: "Weekly Team Mtg.",
-    start: "15:00",
-    end: "16:30",
-    color: "#7B5EA7",
-    textColor: "#3D2060",
-  },
-  {
-    id: 4,
-    title: "Lunch w/ Sarah",
-    start: "12:30",
-    end: "13:30",
-    color: "#3A86C8",
-    textColor: "#0C3D6E",
-  },
-  {
-    id: 5,
-    title: "Code review",
-    start: "14:00",
-    end: "14:30",
-    color: "#C25B7A",
-    textColor: "#621030",
-  },
-  {
-    id: 6,
-    title: "Focus time",
-    start: "09:30",
-    end: "11:00",
-    color: "#4AADAD",
-    textColor: "#0D5050",
-  },
-];
+// Nice soft palette (not too weird)
+const GROUP_COLORS: Record<
+  1 | 2 | 3 | 4,
+  { bg: string; text: string }
+> = {
+  1: { bg: "#D38845", text: "#edf6f6" }, // orange
+  2: { bg: "#4FAFB1", text: "#edf6f6" }, // teal
+  3: { bg: "#438BCD", text: "#edf6f6" }, // blue
+  4: { bg: "#8469B5", text: "#edf6f6" }, // purple
+};
 
-const SAMPLE_ALL_DAY_EVENTS: AllDayEvent[] = [
-  { id: 1, title: "Home Office", color: "#3DB8A8", textColor: "#0A5550" },
-  { id: 2, title: "Mark OOO", color: "#A07DC8", textColor: "#3D1A6E" },
-  { id: 3, title: "Sandy in Berlin", color: "#B87FBE", textColor: "#501060" },
-];
+function getGroupColors(group: 1 | 2 | 3 | 4) {
+  return GROUP_COLORS[group] ?? { bg: "#CBD5E1", text: "#1F2937" };
+}
+
+const FALLBACK_SCHEDULE: SchedulePayload = {
+  date: "2026-04-21",
+  rooms: [
+    {
+      id: "room-101",
+      name: "Room 101",
+      events: [
+        {
+          id: 1,
+          title: "Dentist appt.",
+          start: "09:00",
+          end: "10:00",
+          group: 1,
+        },
+        {
+          id: 2,
+          title: "Focus time",
+          start: "10:00",
+          end: "11:00",
+          group: 2,
+        },
+        {
+          id: 3,
+          title: "Client calls",
+          start: "11:00",
+          end: "12:30",
+          group: 3,
+        },
+        {
+          id: 4,
+          title: "Weekly Team Mtg.",
+          start: "16:00",
+          end: "17:00",
+          group: 4,
+        },
+      ],
+    },
+    {
+      id: "room-102",
+      name: "Room 102",
+      events: [
+        {
+          id: 7,
+          title: "Project Planning",
+          start: "11:00",
+          end: "12:30",
+          group: 1,
+        },
+        {
+          id: 8,
+          title: "Stakeholder Update",
+          start: "13:00",
+          end: "14:00",
+          group: 2,
+        },
+        {
+          id: 9,
+          title: "Blocker Sync",
+          start: "14:00",
+          end: "15:00",
+          group: 4,
+        },
+        {
+          id: 10,
+          title: "Design Review",
+          start: "15:00",
+          end: "16:30",
+          group: 3,
+        },
+      ],
+    },
+    {
+      id: "room-a",
+      name: "Conference Room A",
+      events: [
+        {
+          id: 11,
+          title: "Marketing Standup",
+          start: "09:00",
+          end: "10:00",
+          group: 2,
+        },
+        {
+          id: 12,
+          title: "Campaign Review",
+          start: "10:00",
+          end: "11:00",
+          group: 2,
+        },
+        {
+          id: 13,
+          title: "Budget Review",
+          start: "11:00",
+          end: "12:00",
+          group: 3,
+        },
+        {
+          id: 14,
+          title: "Sales Training",
+          start: "13:00",
+          end: "14:30",
+          group: 4,
+        },
+        {
+          id: 15,
+          title: "Client Presentation",
+          start: "15:00",
+          end: "16:00",
+          group: 2,
+        },
+        {
+          id: 16,
+          title: "Q&A Session",
+          start: "16:00",
+          end: "17:00",
+          group: 1,
+        },
+      ],
+    },
+    {
+      id: "room-b",
+      name: "Conference Room B",
+      events: [
+        {
+          id: 11,
+          title: "Marketing Standup",
+          start: "09:00",
+          end: "10:00",
+          group: 4,
+        },
+        {
+          id: 12,
+          title: "Campaign Review",
+          start: "10:00",
+          end: "11:00",
+          group: 3,
+        },
+        {
+          id: 13,
+          title: "Budget Review",
+          start: "11:00",
+          end: "12:00",
+          group: 2,
+        },
+        {
+          id: 14,
+          title: "Sales Training",
+          start: "13:00",
+          end: "14:30",
+          group: 1,
+        },
+        {
+          id: 15,
+          title: "Client Presentation",
+          start: "15:00",
+          end: "16:00",
+          group: 4,
+        },
+        {
+          id: 16,
+          title: "Q&A Session",
+          start: "16:00",
+          end: "17:00",
+          group: 3,
+        },
+      ],
+    },
+  ],
+};
 
 function timeToMinutes(time: string): number {
   const [hour, minute] = time.split(":").map(Number);
@@ -162,7 +290,7 @@ function getWeekNumber(date: Date): number {
   return Math.ceil((diffDays + jan1.getDay() + 1) / 7);
 }
 
-function resolveOverlaps(events: CalendarEvent[]): PositionedEvent[] {
+function resolveOverlaps(events: RoomEvent[]): PositionedEvent[] {
   const sortedEvents = [...events].sort(
     (a, b) => timeToMinutes(a.start) - timeToMinutes(b.start)
   );
@@ -214,66 +342,18 @@ function resolveOverlaps(events: CalendarEvent[]): PositionedEvent[] {
   return positionedEvents;
 }
 
-function CalendarHeader({
-  date,
-  onPrev,
-  onNext,
-  onToday,
-}: CalendarHeaderProps) {
+function CalendarHeader({ date }: CalendarHeaderProps) {
   return (
-    <div className="sticky top-0 z-20 flex flex-shrink-0 items-center justify-between border-b border-gray-100 bg-card px-4 py-2.5">
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1.5">
-          <Button variant="outline" size="sm" onClick={onPrev}>
-            ‹
-          </Button>
-          <Button variant="outline" size="sm" onClick={onToday}>
-            Today
-          </Button>
-          <Button variant="outline" size="sm" onClick={onNext}>
-            ›
-          </Button>
-        </div>
-
-        <span className="text-[15px] font-medium text-gray-800">
-          {formatHeaderDate(date)}
-        </span>
-      </div>
+    <div className="sticky top-0 z-20 flex items-center justify-between border-b border-[#e4d9c9] bg-[#f8f3eb] px-6 py-4">
+      <span className="text-[15px] font-medium uppercase tracking-wide text-[#4b4b4b]">
+        {formatHeaderDate(date)}
+      </span>
 
       <div className="flex items-center gap-2">
-        <span className="rounded-md bg-background px-2 py-1 text-xs border text-gray-800">
+        <span className="rounded-md border border-[#d8cbb8] bg-[#f8f3eb] px-2 py-1 text-xs text-[#5f5f5f]">
           W{getWeekNumber(date)}
         </span>
-        <span className="text-sm  text-gray-800">{formatFullDate(date)}</span>
-      </div>
-    </div>
-  );
-}
-
-function AllDayBanner({ events }: AllDayBannerProps) {
-  if (events.length === 0) return null;
-
-  return (
-    <div className="flex-shrink-0 border-b border-gray-100 bg-white">
-      <div className="flex">
-        <div className="flex w-[52px] flex-shrink-0 items-center justify-end border-r border-gray-100 pr-2 py-1">
-          <span className="text-[10px] text-gray-400">all-day</span>
-        </div>
-
-        <div className="flex flex-1 flex-col gap-0.5 px-2 py-1">
-          {events.map((event) => (
-            <div
-              key={event.id}
-              className="truncate rounded px-2 py-0.5 text-xs font-medium"
-              style={{
-                background: event.color,
-                color: event.textColor,
-              }}
-            >
-              {event.title}
-            </div>
-          ))}
-        </div>
+        <span className="text-sm text-[#4b4b4b]">{formatFullDate(date)}</span>
       </div>
     </div>
   );
@@ -283,37 +363,37 @@ function EventBlock({ event }: EventBlockProps) {
   const startMinutes = timeToMinutes(event.start);
   const endMinutes = timeToMinutes(event.end);
   const top = minutesToY(startMinutes);
-  const height = Math.max(minutesToY(endMinutes) - top, 20);
+  const height = Math.max(minutesToY(endMinutes) - top, 24);
   const widthFraction = 1 / event.totalCols;
+
+  const { bg, text } = getGroupColors(event.group);
 
   return (
     <div
-      className="absolute z-[5] cursor-pointer overflow-hidden rounded-md transition-all duration-150 hover:z-10 hover:scale-[1.01] hover:brightness-90"
+      className="absolute z-[5] overflow-hidden rounded-md px-3 py-2 shadow-sm"
       style={{
         top: top + 2,
         height: height - 4,
-        left: `calc(${event.col * widthFraction * 100}% + 2px)`,
-        width: `calc(${widthFraction * 100}% - 4px)`,
-        background: event.color,
+        left: `calc(${event.col * widthFraction * 100}% + 6px)`,
+        width: `calc(${widthFraction * 100}% - 12px)`,
+        background: bg,
       }}
     >
-      <div className="px-1.5 pt-1">
-        <p
-          className="truncate text-[12px] font-medium leading-tight"
-          style={{ color: event.textColor }}
-        >
-          {event.title}
-        </p>
+      <p
+        className="truncate text-[13px] font-medium leading-tight"
+        style={{ color: text }}
+      >
+        {event.title}
+      </p>
 
-        {height > 32 && (
-          <p
-            className="mt-0.5 truncate text-[11px] opacity-80"
-            style={{ color: event.textColor }}
-          >
-            {formatEventTime(event.start)} – {formatEventTime(event.end)}
-          </p>
-        )}
-      </div>
+      {height > 38 && (
+        <p
+          className="mt-1 text-[12px] opacity-85"
+          style={{ color: text }}
+        >
+          {formatEventTime(event.start)} – {formatEventTime(event.end)}
+        </p>
+      )}
     </div>
   );
 }
@@ -333,6 +413,8 @@ function CurrentTimeLine() {
     return () => window.clearInterval(intervalId);
   }, []);
 
+  if (minutes < START_HOUR * 60 || minutes > END_HOUR * 60) return null;
+
   const top = minutesToY(minutes);
 
   return (
@@ -340,43 +422,29 @@ function CurrentTimeLine() {
       className="pointer-events-none absolute left-0 right-0 z-[15]"
       style={{ top }}
     >
-      <div className="absolute left-[-4px] top-[-4px] h-[9px] rounded-full bg-red-500" />
+      <div className="absolute left-[-4px] top-[-4px] h-[8px] w-[8px] rounded-full bg-red-500" />
       <div className="absolute left-0 right-0 top-0 h-[2px] bg-red-500" />
     </div>
   );
 }
 
-function TimeGrid({ events, isToday }: TimeGridProps) {
+function RoomColumn({ room, isToday }: RoomColumnProps) {
   const gridHeight = HOUR_HEIGHT * (END_HOUR - START_HOUR);
-  const positionedEvents = useMemo(() => resolveOverlaps(events), [events]);
+  const positionedEvents = useMemo(() => resolveOverlaps(room.events), [room.events]);
 
   return (
-    <div className="flex" style={{ height: gridHeight, position: "relative" }}>
-      <div className="relative w-[52px] flex-shrink-0 border-r border-gray-100">
-        {HOURS.filter((hour) => hour > START_HOUR && hour < END_HOUR).map((hour) => (
-          <span
-            key={hour}
-            className="absolute right-2 -translate-y-1/2 whitespace-nowrap text-[11px] text-gray-400"
-            style={{ top: minutesToY(hour * 60) }}
-          >
-            {formatHour(hour)}
-          </span>
-        ))}
+    <div className="relative min-w-[320px] flex-1 border-r border-[#e4d9c9] last:border-r-0">
+      <div className="sticky top-0 z-10 border-b border-[#e4d9c9] bg-[#f8f3eb] px-4 py-3 text-center text-[15px] font-medium text-[#4b4b4b]">
+        {room.name}
       </div>
 
-      <div className="relative flex-1">
+      <div className="relative" style={{ height: gridHeight }}>
         {HOURS.map((hour) => (
           <div key={hour}>
             <div
-              className="absolute left-0 right-0 border-t border-gray-100"
+              className="absolute left-0 right-0 border-t border-[#e8dfd1]"
               style={{ top: minutesToY(hour * 60) }}
             />
-            {hour < END_HOUR && (
-              <div
-                className="absolute left-0 right-0 border-t border-dashed border-gray-100 opacity-60"
-                style={{ top: minutesToY(hour * 60 + 30) }}
-              />
-            )}
           </div>
         ))}
 
@@ -391,11 +459,41 @@ function TimeGrid({ events, isToday }: TimeGridProps) {
 }
 
 export default function Page() {
-  const [date, setDate] = useState<Date>(new Date(2023, 9, 2));
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
-  const today = new Date();
+  const [schedule, setSchedule] = useState<SchedulePayload>(FALLBACK_SCHEDULE);
+  const [isTimeDialogOpen, setIsTimeDialogOpen] = useState(false);
+  const [selectedStartTime, setSelectedStartTime] = useState("09:00");
+  const [selectedEndTime, setSelectedEndTime] = useState("10:00");
 
+  useEffect(() => {
+    const raw = sessionStorage.getItem("calendarSchedule");
+    if (!raw) return;
+
+    try {
+      const parsed: SchedulePayload = JSON.parse(raw);
+
+      if (parsed?.rooms?.length) {
+        setSchedule(parsed);
+      }
+    } catch (error) {
+      console.error("Failed to parse calendarSchedule:", error);
+    }
+  }, []);
+
+  const date = useMemo(() => {
+    const dateParam = searchParams.get("date");
+    const sourceDate = dateParam || schedule.date;
+
+    if (!sourceDate) return new Date();
+
+    const [year, month, day] = sourceDate.split("-").map(Number);
+    return new Date(year, month - 1, day);
+  }, [searchParams, schedule.date]);
+
+  const today = new Date();
   const isToday =
     date.getFullYear() === today.getFullYear() &&
     date.getMonth() === today.getMonth() &&
@@ -403,38 +501,164 @@ export default function Page() {
 
   useEffect(() => {
     if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = minutesToY(7 * 60) - 20;
+      scrollContainerRef.current.scrollTop = Math.max(minutesToY(9 * 60) - 20, 0);
     }
   }, []);
 
-  function shiftDate(days: number) {
-    setDate((currentDate) => {
-      return new Date(
-        currentDate.getFullYear(),
-        currentDate.getMonth(),
-        currentDate.getDate() + days
-      );
-    });
-  }
+  const handleConfirmTime = () => {
+    console.log("Time selected:", { startTime: selectedStartTime, endTime: selectedEndTime });
+    
+    // Save time selection to session storage
+    sessionStorage.setItem(
+      "selectedTime",
+      JSON.stringify({ start: selectedStartTime, end: selectedEndTime })
+    );
+    
+    setIsTimeDialogOpen(false);
+    
+    // Get the date in YYYY-MM-DD format
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const dateString = `${year}-${month}-${day}`;
+    
+    router.push(`/form?date=${dateString}`);
+  };
 
-    return (
+  const gridHeight = HOUR_HEIGHT * (END_HOUR - START_HOUR);
+
+  return (
     <div className="flex items-start justify-center px-6 py-8">
-      <div className="w-full max-w-6xl">
-        <div className="flex max-h-[800px] flex-col overflow-hidden rounded-2xl border border-[#d8cbb8] bg-card shadow-sm">
-          <CalendarHeader
-            date={date}
-            onPrev={() => shiftDate(-1)}
-            onNext={() => shiftDate(1)}
-            onToday={() => setDate(new Date())}
-          />
-          {/* <AllDayBanner events={SAMPLE_ALL_DAY_EVENTS} /> */}
+      <div className="w-full max-w-[1500px]">
+        {/* Time Selection Button */}
+        <div className="mb-4 flex justify-end">
+          <Button
+            onClick={() => setIsTimeDialogOpen(true)}
+            className="gap-2"
+            variant="outline"
+          >
+            <Clock className="h-4 w-4" />
+            Select Time
+          </Button>
+        </div>
+
+        <div className="overflow-hidden rounded-2xl border border-[#d8cbb8] bg-[#f8f3eb] shadow-sm">
+          <CalendarHeader date={date} />
+
           <div
             ref={scrollContainerRef}
-            className="flex-1 overflow-x-hidden overflow-y-auto"
+            className="overflow-auto"
+            style={{ maxHeight: "820px" }}
           >
-            <TimeGrid events={SAMPLE_EVENTS} isToday={isToday} />
+            <div className="flex min-w-[980px]">
+              {/* Time column */}
+              <div className="sticky left-0 z-10 w-[70px] flex-shrink-0 border-r border-[#e4d9c9] bg-[#f8f3eb]">
+                <div className="sticky top-0 h-[49px] border-b border-[#e4d9c9] bg-[#f8f3eb]" />
+                <div className="relative" style={{ height: gridHeight }}>
+                  {HOURS.map((hour) => (
+                    <div key={hour}>
+                      <div
+                        className="absolute left-0 right-0 border-t border-[#e8dfd1]"
+                        style={{ top: minutesToY(hour * 60) }}
+                      />
+                      {hour < END_HOUR && (
+                        <span
+                          className="absolute left-3 -translate-y-1/2 text-[12px] text-[#8f98a3]"
+                          style={{ top: minutesToY(hour * 60) }}
+                        >
+                          {formatHour(hour)}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Room columns */}
+              <div className="flex min-w-0 flex-1">
+                {schedule.rooms.map((room) => (
+                  <RoomColumn key={room.id} room={room} isToday={isToday} />
+                ))}
+              </div>
+            </div>
           </div>
         </div>
+
+        {/* Time Selection Dialog */}
+        <Dialog open={isTimeDialogOpen} onOpenChange={setIsTimeDialogOpen}>
+          <DialogContent className="sm:max-w-[400px]">
+            <DialogHeader>
+              <DialogTitle>Select Time Slot</DialogTitle>
+              <DialogDescription>
+                Choose the start and end time for your booking.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-6 py-4">
+              {/* Start Time */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">
+                  Start Time
+                </label>
+                <input
+                  type="time"
+                  value={selectedStartTime}
+                  onChange={(e) => {
+                    setSelectedStartTime(e.target.value);
+                    // Ensure end time is not earlier than start time
+                    if (e.target.value >= selectedEndTime) {
+                      const [hours, minutes] = e.target.value.split(":").map(Number);
+                      const newHours = hours + 1;
+                      setSelectedEndTime(
+                        `${String(newHours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`
+                      );
+                    }
+                  }}
+                  className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+
+              {/* End Time */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">
+                  End Time
+                </label>
+                <input
+                  type="time"
+                  value={selectedEndTime}
+                  onChange={(e) => setSelectedEndTime(e.target.value)}
+                  min={selectedStartTime}
+                  className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+
+              {/* Time Display */}
+              <div className="rounded-md bg-blue-50 p-3 text-sm text-blue-800">
+                <p className="font-medium">Selected Duration:</p>
+                <p className="mt-1">
+                  {selectedStartTime} – {selectedEndTime}
+                </p>
+              </div>
+            </div>
+
+            {/* Confirm Button */}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsTimeDialogOpen(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleConfirmTime}
+                className="flex-1"
+              >
+                Confirm Time
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
