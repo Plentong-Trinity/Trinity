@@ -111,6 +111,16 @@ export default function BookingPage() {
     setSelectedSingleDate(date);
   };
 
+  const handleSingleDayCalendarOpenChange = (open: boolean) => {
+    setIsSingleDayCalendarOpen(open);
+
+    if (!open) {
+      setLoadingType(null);
+      setSelectedSingleDate(null);
+      setCalendarMonth(new Date());
+    }
+  };
+
   const handleConfirmSingleDay = () => {
     console.log("Single day booking confirmed for:", selectedSingleDate);
     setLoadingType(null);
@@ -140,7 +150,6 @@ export default function BookingPage() {
   const handleNextMonth = () => {
     setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1));
   };
-
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 p-4 md:p-8">
       {/* <div className="max-w-6xl mx-auto w-full mb-6">
@@ -293,7 +302,7 @@ export default function BookingPage() {
         </Dialog>
 
         {/* --- Single Day Calendar Popup --- */}
-        <Dialog open={isSingleDayCalendarOpen} onOpenChange={setIsSingleDayCalendarOpen}>
+        <Dialog open={isSingleDayCalendarOpen} onOpenChange={handleSingleDayCalendarOpenChange}>
           <DialogContent className="sm:max-w-[320px] p-0 bg-white border border-gray-300 [&>button]:hidden">
             {/* Month/Year Header with Navigation - Aligned with X */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
