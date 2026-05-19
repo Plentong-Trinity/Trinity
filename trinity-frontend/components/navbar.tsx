@@ -197,6 +197,9 @@ function NavLinks({ mobile = false, scrollToSection, onClick }: { mobile?: boole
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      <a href="/admin" className={linkClass} onClick={onClick}>
+        Admin
+      </a>
       <a href="/login" className={linkClass} onClick={onClick}>
         <button
           className={linkClass + " bg-primary text-white px-4 py-2 rounded-md hover:text-black hover:bg-red-200 transition-colors"}
