@@ -2,167 +2,147 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Github, Mail, Send } from "lucide-react"
-
-// Initialize EmailJS with your user ID
-const initializeEmailJS = () => {
-  // This function would normally initialize EmailJS
-  // For demonstration purposes, we're just logging
-  console.log("EmailJS would be initialized here")
-}
+import { login, hasToken, logout } from "@/lib/auth"
+import { LogIn, LogOut } from "lucide-react"
 
 export function LoginSection() {
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    message: "",
-    documentType: "",
-  })
-
+  const router = useRouter()
+  const [isLoggedIn, setIsLoggedIn] = useState(hasToken())
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [submitStatus, setSubmitStatus] = useState<{ success: boolean; message: string } | null>(null)
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
-  useEffect(() => {
-    // Initialize EmailJS when component mounts
-    initializeEmailJS()
-  }, [])
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
-    setSubmitStatus(null)
+    setMessage(null)
 
     try {
-      // In a real implementation, this would use EmailJS or a similar service
-      // For demonstration, we'll simulate sending an email
-
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-
-      // Explicitly set the recipient email
-      const recipientEmail = "immutable.help@gmail.com"
-
-      // Log what would be sent
-      console.log(`Email would be sent to: ${recipientEmail}`)
-      console.log("Form data:", formData)
-
-      // In production, you would use EmailJS like this:
-      /*
-      await emailjs.send(
-        'YOUR_SERVICE_ID',
-        'YOUR_TEMPLATE_ID',
-        {
-          to_email: recipientEmail,
-          from_name: formData.name,
-          from_email: formData.email,
-          document_type: formData.documentType,
-          message: formData.message,
-        },
-        'YOUR_PUBLIC_KEY'
-      )
-      */
-
-      // Show success message
-      setSubmitStatus({
-        success: true,
-        message: `Thank you for your message! Your email has been sent to ${recipientEmail}.`,
+      await login(email, password)
+      setMessage({
+        type: "success",
+        text: "Login successful! Redirecting...",
       })
+      setEmail("")
+      setPassword("")
+      setIsLoggedIn(true)
 
-      // Reset form
-      setFormData({
-        name: "",
-        email: "",
-        message: "",
-        documentType: "",
-      })
+      // Redirect to admin page or dashboard after 1 second
+      setTimeout(() => {
+        router.push("/admin")
+      }, 1000)
     } catch (error) {
-      console.error("Error submitting form:", error)
-      setSubmitStatus({
-        success: false,
-        message:
-          "There was an error sending your message. Please try again or contact us directly at immutable.help@gmail.com",
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Login failed",
       })
     } finally {
       setIsSubmitting(false)
     }
   }
 
+  const handleLogout = async () => {
+    setIsSubmitting(true)
+    try {
+      await logout()
+      setIsLoggedIn(false)
+      setMessage({
+        type: "success",
+        text: "Logged out successfully",
+      })
+    } catch (error) {
+      console.error("Logout error:", error)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   return (
-    <section id="contact" className="py-20">
+    <section id="login" className="py-20">
       <div className="container mx-auto px-4">
         <div className="max-w-3xl mx-auto text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">Login</h2>
+          <h2 className="text-3xl md:text-4xl font-bold mb-4">Authentication</h2>
           <div className="w-20 h-1 bg-primary mx-auto mb-6"></div>
         </div>
 
         <div className="flex justify-center">
-          <div className="gap-8 w-full max-w-xl">
-            <Card className="bg-card/50 backdrop-blur-sm border-primary/20">
+          <Card className="bg-card/50 backdrop-blur-sm border-primary/20 w-full max-w-md">
             <CardHeader>
+              <CardTitle>{isLoggedIn ? "Welcome" : "Login"}</CardTitle>
+              <CardDescription>
+                {isLoggedIn ? "You are logged in" : "Sign in with your credentials"}
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
-
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    placeholder="john@example.com"
-                    value={formData.email}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2 ">
-                  <Label htmlFor="documentType">Password</Label>
-                  <Input
-                    id="documentType"
-                    name="documentType"
-                    placeholder="Enter Your Password"
-                    value={formData.documentType}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-
-                {submitStatus && (
-                  <div
-                    className={`p-3 rounded-md ${submitStatus.success ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"}`}
+              {isLoggedIn ? (
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">You have successfully logged in.</p>
+                  <Button
+                    onClick={handleLogout}
+                    disabled={isSubmitting}
+                    variant="outline"
+                    className="w-full"
                   >
-                    {submitStatus.message}
-                  </div>
-                )}
-                <div className="pt-5">
-                  <Button type="submit" className="w-full" disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <>Processing...</>
-                  ) : (
-                    <>
-                      <Send className="h-4 w-4 mr-2" />
-                      Submit
-                    </>
-                  )}
+                    <LogOut className="h-4 w-4 mr-2" />
+                    {isSubmitting ? "Logging out..." : "Logout"}
                   </Button>
                 </div>
-                
-              </form>
+              ) : (
+                <form onSubmit={handleLogin} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email Address</Label>
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      placeholder="admin@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <Input
+                      id="password"
+                      name="password"
+                      type="password"
+                      placeholder="Enter your password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      minLength={6}
+                    />
+                  </div>
+
+                  {message && (
+                    <div
+                      className={`p-3 rounded-md text-sm ${
+                        message.type === "success"
+                          ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                          : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                      }`}
+                    >
+                      {message.text}
+                    </div>
+                  )}
+
+                  <Button type="submit" className="w-full" disabled={isSubmitting}>
+                    <LogIn className="h-4 w-4 mr-2" />
+                    {isSubmitting ? "Logging in..." : "Login"}
+                  </Button>
+                </form>
+              )}
             </CardContent>
           </Card>
-          </div>
         </div>
       </div>
     </section>

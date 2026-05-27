@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
+import { useRequireAuth } from "@/hooks/use-auth"
 
 type BookingStatus = "pending" | "approved" | "denied"
 
@@ -139,6 +140,9 @@ const statusStyle: Record<BookingStatus, string> = {
 }
 
 export default function AdminPage() {
+  // Protect this page - redirects to login if not authenticated
+  useRequireAuth()
+
   const [bookings, setBookings] = React.useState<RoomBooking[]>(initialBookings)
   const [bulletins, setBulletins] = React.useState<Bulletin[]>(initialBulletins)
   const [fixedMassSchedules, setFixedMassSchedules] = React.useState<FixedMassSchedule[]>(
