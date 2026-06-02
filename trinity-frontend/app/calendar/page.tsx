@@ -13,7 +13,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 import { Toaster, toast } from "sonner"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 
 interface CalendarEvent {
   id: string
@@ -149,6 +149,39 @@ export default function EventCalendarPage() {
   const [startTime, setStartTime] = React.useState<string>("09:00");
   const [endTime, setEndTime] = React.useState<string>("18:00");
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const [selectedRooms, setSelectedRooms] = React.useState<string[]>([])
+
+  React.useEffect(() => {
+    const roomsParam = searchParams.get("rooms")
+    if (roomsParam) {
+      const rooms = roomsParam
+        .split(",")
+        .map((room) => room.trim())
+        .filter(Boolean)
+
+      if (rooms.length) {
+        setSelectedRooms(rooms)
+        sessionStorage.setItem("selectedRooms", JSON.stringify(rooms))
+      }
+    } else {
+      const storedRooms = sessionStorage.getItem("selectedRooms")
+      if (storedRooms) {
+        try {
+          const parsed = JSON.parse(storedRooms)
+          if (Array.isArray(parsed)) setSelectedRooms(parsed)
+        } catch (error) {
+          console.error("Failed to parse selectedRooms:", error)
+        }
+      }
+    }
+  }, [searchParams])
+
+  React.useEffect(() => {
+    if (selectedRooms.length > 0) {
+      sessionStorage.setItem("selectedRooms", JSON.stringify(selectedRooms))
+    }
+  }, [selectedRooms])
 
   React.useEffect(() => {
     // Show toast only once on mount
@@ -591,7 +624,25 @@ export default function EventCalendarPage() {
                   description: `Scheduled from ${startDate?.toLocaleDateString()} ${startTime} to ${endDate?.toLocaleDateString()} ${endTime}`
                 });
                 setIsDayDialogOpen(false);
-                router.push("/form") // Example: navigate to a confirmation page after booking
+                const params = new URLSearchParams();
+
+                if (startDate) {
+                  params.set("date", `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, "0")}-${String(startDate.getDate()).padStart(2, "0")}`);
+                }
+                if (endDate) {
+                  params.set("endDate", `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, "0")}-${String(endDate.getDate()).padStart(2, "0")}`);
+                }
+                if (selectedRooms.length > 0) {
+                  params.set("rooms", selectedRooms.join(","));
+                }
+                if (startTime) {
+                  params.set("start", startTime);
+                }
+                if (endTime) {
+                  params.set("end", endTime);
+                }
+
+                router.push(`/form?${params.toString()}`);
               }}
             >
               Yes, Proceed with Booking

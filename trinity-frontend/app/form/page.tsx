@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Users, MapPin, Calendar, Clock, AlertTriangle, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,7 @@ const ROOM_DATA_FLOOR_2 = [
   { id: '7', label: 'Room 7', grid: 'col-start-4 col-span-2 row-start-5 row-span-2', style:'my-1 ml-1 mr-0.5' },
   { id: '6', label: 'Room 6', grid: 'col-start-6 col-span-2 row-start-5 row-span-2', style:'my-1 mx-0.5' },
   { id: '4', label: 'Room 4', grid: 'col-start-7 row-start-1 row-span-2', style:'my-1' },
-  { id: '5', label: 'Room H', grid: 'col-start-8 row-start-1 row-span-2', style:'my-1' },
+  { id: '5', label: 'Room 5', grid: 'col-start-8 row-start-1 row-span-2', style:'my-1' },
   { id: 'PH', label: 'Parish House', grid: 'col-start-9 col-span-2 row-start-1 row-span-2 bg-slate-50', isService: true, style:'my-1 mx-1' },
 ];
 
@@ -43,12 +43,15 @@ export default function FormPage() {
   const searchParams = useSearchParams();
   const [selectedRooms, setSelectedRooms] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>("");
+  const [selectedEndDate, setSelectedEndDate] = useState<string>("");
   const [selectedTime, setSelectedTime] = useState({ start: "", end: "" });
   const [files, setFiles] = useState<File[]>([]);
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+    // no useRef for file input; input will cover the label to capture clicks
 
   const [formData, setFormData] = useState({
     applicant: "",
@@ -62,6 +65,30 @@ export default function FormPage() {
   const [isDragActive, setIsDragActive] = useState(false);
   const roomData = currentFloor === 'floor1' ? ROOM_DATA_FLOOR_1 : ROOM_DATA_FLOOR_2;
 
+  const roomLabelMap = useMemo(
+    () => [...ROOM_DATA_FLOOR_1, ...ROOM_DATA_FLOOR_2].reduce<Record<string, string>>((map, room) => {
+      map[room.id] = room.label;
+      return map;
+    }, {}),
+    []
+  );
+
+  const selectedRoomNames = useMemo(
+    () => selectedRooms.map((roomId) => roomLabelMap[roomId] || roomId),
+    [selectedRooms, roomLabelMap]
+  );
+
+  const formatShortDate = (dateString: string) => {
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return dateString;
+    return `${date.getDate()}/${date.getMonth() + 1}`;
+  };
+
+  const formatShortDateTime = (dateString: string, time: string) => {
+    const formattedDate = formatShortDate(dateString);
+    return time ? `${formattedDate} ${time}` : formattedDate;
+  };
+
   const toggleRoom = (id: string, isService: boolean) => {
     if (isService) return;
     setSelectedRooms((prev) =>
@@ -72,22 +99,36 @@ export default function FormPage() {
   useEffect(() => {
     const loadData = () => {
       const dateParam = searchParams.get("date");
-      if (dateParam) setSelectedDate(dateParam);
+      setSelectedDate(dateParam || "");
 
-      const timeData = sessionStorage.getItem("selectedTime");
-      if (timeData) {
-        try {
-          const parsed = JSON.parse(timeData);
-          setSelectedTime({ start: parsed.start || "", end: parsed.end || "" });
-        } catch (e) { console.error(e); }
+      const endDateParam = searchParams.get("endDate");
+      setSelectedEndDate(endDateParam || "");
+
+      const startParam = searchParams.get("start");
+      const endParam = searchParams.get("end");
+      if (startParam || endParam) {
+        setSelectedTime({ start: startParam || "", end: endParam || "" });
       }
 
-      const roomsData = sessionStorage.getItem("selectedRooms");
-      if (roomsData) {
-        try {
-          const parsed = JSON.parse(roomsData);
-          setSelectedRooms(Array.isArray(parsed) ? parsed : []);
-        } catch (e) { console.error(e); }
+      const roomsParam = searchParams.get("rooms");
+      if (roomsParam) {
+        const parsedRooms = roomsParam
+          .split(",")
+          .map((room) => room.trim())
+          .filter(Boolean);
+
+        if (parsedRooms.length) {
+          setSelectedRooms(parsedRooms);
+          sessionStorage.setItem("selectedRooms", JSON.stringify(parsedRooms));
+        }
+      } else {
+        const roomsData = sessionStorage.getItem("selectedRooms");
+        if (roomsData) {
+          try {
+            const parsed = JSON.parse(roomsData);
+            setSelectedRooms(Array.isArray(parsed) ? parsed : []);
+          } catch (e) { console.error(e); }
+        }
       }
     };
 
@@ -123,9 +164,8 @@ export default function FormPage() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      setFiles((prev) => [...prev, ...Array.from(e.target.files)]);
-      e.currentTarget.value = "";
-    }
+      setFiles((prev) => [...prev, ...Array.from(e.target.files!)]);
+    } 
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLLabelElement>) => {
@@ -156,6 +196,9 @@ export default function FormPage() {
 
     if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
       try {
+        // mammoth does not have bundled TypeScript declarations for the browser build
+        // ignore TS checking for this dynamic import
+        // @ts-ignore
         const { default: mammoth } = await import('mammoth/mammoth.browser');
         const arrayBuffer = await file.arrayBuffer();
         const result = await mammoth.convertToHtml({ arrayBuffer });
@@ -235,15 +278,30 @@ export default function FormPage() {
               <div className="flex items-start gap-3">
                 <Calendar className="h-5 w-5 text-blue-600" />
                 <div>
-                  <p className="text-[10px] text-slate-400 uppercase font-bold">Selected Date</p>
-                  <p className="text-sm font-semibold">{selectedDate || "Not selected"}</p>
+                  <p className="text-[10px] text-slate-400 uppercase font-bold">{selectedEndDate ? "Selected Date Range" : "Selected Date"}</p>
+                  <p className="text-sm font-semibold">
+                    {selectedDate
+                      ? selectedEndDate
+                        ? `${formatShortDate(selectedDate)} – ${formatShortDate(selectedEndDate)}`
+                        : formatShortDate(selectedDate)
+                      : "Not selected"}
+                  </p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <Clock className="h-5 w-5 text-blue-600" />
                 <div>
-                  <p className="text-[10px] text-slate-400 uppercase font-bold">Time Window</p>
-                  <p className="text-sm font-semibold">{selectedTime.start ? `${selectedTime.start} – ${selectedTime.end}` : "Not selected"}</p>
+                  <p className="text-[10px] text-slate-400 uppercase font-bold">Time Range</p>
+                  <p className="text-sm font-semibold">
+                    {selectedTime.start ? `${selectedTime.start} – ${selectedTime.end}` : "Not selected"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <Users className="h-5 w-5 text-blue-600" />
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase font-bold">Selected Rooms</p>
+                  <p className="text-sm font-semibold">{selectedRoomNames.length > 0 ? selectedRoomNames.join(", ") : "Not selected"}</p>
                 </div>
               </div>
             </CardContent>
@@ -263,7 +321,7 @@ export default function FormPage() {
                 {/* Applicant Info - Using normal-case to ensure case sensitivity */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label htmlFor="applicant" className="text-sm font-semibold">Applicant Name</Label>
+                    <Label htmlFor="applicant" className="text-sm font-semibold">Applicant Name*</Label>
                     <Input 
                       id="applicant" 
                       placeholder="e.g. Paul Ho" 
@@ -274,13 +332,13 @@ export default function FormPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="pax" className="text-sm font-semibold">Expected Pax</Label>
+                    <Label htmlFor="pax" className="text-sm font-semibold">Expected Pax*</Label>
                     <Input id="pax" type="number" placeholder="40" className="font-sans" required value={formData.pax} onChange={handleChange} min={1} />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="ministry" className="text-sm font-semibold">Ministry / Department</Label>
+                  <Label htmlFor="ministry" className="text-sm font-semibold">Ministry / Department*</Label>
                   <Input 
                     id="ministry" 
                     placeholder="e.g. Outreach Team" 
@@ -292,7 +350,7 @@ export default function FormPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="purpose" className="text-sm font-semibold">Purpose of Use</Label>
+                  <Label htmlFor="purpose" className="text-sm font-semibold">Purpose of Use*</Label>
                   <Textarea 
                     id="purpose" 
                     rows={3} 
@@ -308,10 +366,10 @@ export default function FormPage() {
                   <Label className="text-sm font-semibold">Supporting Documents</Label>
                   <div className="flex items-center justify-center w-full">
                     <label
-                      className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-slate-50 transition-colors ${isDragActive ? 'border-blue-500 bg-blue-50' : 'border-slate-300 hover:bg-slate-100'}`}
-                      onDragOver={handleDragOver}
-                      onDragLeave={handleDragLeave}
-                      onDrop={handleDrop}
+                      className={`relative flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-slate-50 transition-colors ${isDragActive ? 'border-blue-500 bg-blue-50' : 'border-slate-300 hover:bg-slate-100'}`}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
                     >
                       <div className="flex flex-col items-center justify-center pt-5 pb-6">
                         {files.length > 0 ? (
@@ -329,7 +387,13 @@ export default function FormPage() {
                           </>
                         )}
                       </div>
-                      <input type="file" className="hidden" multiple onChange={handleFileChange} accept=".pdf,.doc,.docx,.png,.jpg" />
+                      <input
+                        type="file"
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        multiple
+                        onChange={handleFileChange}
+                        accept=".pdf,.doc,.docx,.png,.jpg"
+                      />
                     </label>
                   </div>
 

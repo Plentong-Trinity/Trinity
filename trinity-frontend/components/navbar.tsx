@@ -184,7 +184,7 @@ function NavLinks({ mobile = false, scrollToSection, onClick }: { mobile?: boole
             </DropdownMenuItem>
 
             <DropdownMenuItem asChild onMouseEnter={openDropdown} onMouseLeave={closeDropdown}>
-              <Link href="/blog" className={linkClass}>Overview</Link>
+              <Link href="/overview" className={linkClass}>Overview</Link>
             </DropdownMenuItem>
 
             <DropdownMenuItem asChild onMouseEnter={openDropdown} onMouseLeave={closeDropdown}>
