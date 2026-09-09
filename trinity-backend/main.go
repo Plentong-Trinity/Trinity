@@ -12,11 +12,19 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 
+	"github.com/johnman136/Trinity/trinity-backend/internal/db"
 	"github.com/johnman136/Trinity/trinity-backend/internal/routes"
 )
 
 func main() {
 	_ = godotenv.Load()
+
+	// Initialize Supabase database connection
+	if err := db.InitSupabase(); err != nil {
+		log.Fatalf("Failed to initialize Supabase: %v", err)
+	}
+	defer db.CloseSupabase()
+	log.Println("✅ Connected to Supabase")
 
 	port := os.Getenv("PORT")
 	if port == "" {
