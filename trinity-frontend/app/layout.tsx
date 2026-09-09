@@ -114,24 +114,56 @@ export default function RootLayout({
 }>) {
   const structuredData = {
     "@context": "https://schema.org",
-    "@type": "WebSite",
-    name: "Immutable Archive",
-    description:
-      "A decentralized archive preserving censored history, martyrs' testimonies, Bible translations, prophecy records, and lost books using decentralized technology.",
-    url: "https://historictruth.org",
-    potentialAction: {
-      "@type": "SearchAction",
-      target: "https://historictruth.org/#library?search={search_term_string}",
-      "query-input": "required name=search_term_string",
-    },
-    publisher: {
-      "@type": "Organization",
-      name: "Immutable Project",
-      logo: {
-        "@type": "ImageObject",
-        url: "https://historictruth.org/immutable_logo.png",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "https://historictruth.org/#website",
+        name: "Immutable Archive",
+        description:
+          "Discover immutable records of historic truth at Immutable Archive. Explore suppressed texts, prophetic parallels, and ancient wisdom preserved for truth-seekers worldwide.",
+        url: "https://historictruth.org",
+        publisher: {
+          "@id": "https://historictruth.org/#organization",
+        },
+        potentialAction: {
+          "@type": "SearchAction",
+          target: "https://historictruth.org/#library?search={search_term_string}",
+          "query-input": "required name=search_term_string",
+        },
       },
-    },
+      {
+        "@type": "Organization",
+        "@id": "https://historictruth.org/#organization",
+        name: "Immutable Project",
+        url: "https://historictruth.org",
+        logo: {
+          "@type": "ImageObject",
+          url: "https://historictruth.org/immutable_logo.png",
+        },
+      },
+      {
+        "@type": "WebPage",
+        "@id": "https://historictruth.org/#webpage",
+        url: "https://historictruth.org",
+        name: "Immutable Archive",
+        description:
+          "A decentralized archive preserving censored history, martyrs' testimonies, Bible translations, prophecy records, and lost books using decentralized technology.",
+        isPartOf: {
+          "@id": "https://historictruth.org/#website",
+        },
+        breadcrumb: {
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            {
+              "@type": "ListItem",
+              position: 1,
+              name: "Home",
+              item: "https://historictruth.org",
+            },
+          ],
+        },
+      },
+    ],
   }
 
   return (

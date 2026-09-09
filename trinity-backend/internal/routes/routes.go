@@ -4,6 +4,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/johnman136/Trinity/trinity-backend/internal/handlers"
 	"github.com/johnman136/Trinity/trinity-backend/internal/middleware"
+
+	middleware "github.com/johnman136/Trinity/trinity-backend/internal/middleware"
 )
 
 func Register(r *gin.Engine) {
