@@ -5,12 +5,17 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"time"
 
 	_ "github.com/lib/pq"
 )
 
 // Supabase connection pool
 var DB *sql.DB
+
+// When present, use the service role key instead of a direct Postgres connection
+var SupabaseServiceRoleKey string
+var SupabaseURL string
 
 // InitSupabase initializes the Supabase database connection
 func InitSupabase() error {
@@ -19,17 +24,34 @@ func InitSupabase() error {
 	supabasePgPassword := os.Getenv("SUPABASE_PG_PASSWORD")
 	supabasePgUser := os.Getenv("SUPABASE_PG_USER")
 	supabasePgDatabase := os.Getenv("SUPABASE_PG_DATABASE")
+	serviceRole := os.Getenv("SUPABASE_SERVICE_ROLE_KEY")
 
-	if supabaseURL == "" || supabasePgPassword == "" {
-		return fmt.Errorf("missing Supabase environment variables")
+	// If a Supabase Service Role key is provided, prefer that and skip direct DB connection.
+	if serviceRole != "" && supabaseURL != "" {
+		SupabaseServiceRoleKey = serviceRole
+		SupabaseURL = supabaseURL
+		// Do not attempt a Postgres connection; caller can use the service role key.
+		return nil
 	}
 
-	// Extract host from Supabase URL (format: https://xxxxx.supabase.co)
-	// Supabase provides a PostgreSQL connection string
-	connStr := fmt.Sprintf("postgres://%s:%s@db.%s/postgres?sslmode=require",
+	if supabaseURL == "" || supabasePgPassword == "" || supabasePgUser == "" || supabasePgDatabase == "" {
+		return fmt.Errorf("missing Supabase environment variables")
+	}
+	// Build Postgres connection string using configured database
+	// supabaseURL may be the full project url (https://xxxxx.supabase.co)
+	// strip scheme if present when building host portion
+	host := supabaseURL
+	if len(host) > 8 && host[:8] == "https://" {
+		host = host[8:]
+	} else if len(host) > 7 && host[:7] == "http://" {
+		host = host[7:]
+	}
+
+	connStr := fmt.Sprintf("postgres://%s:%s@db.%s/%s?sslmode=require",
 		supabasePgUser,
 		supabasePgPassword,
-		supabaseURL)
+		host,
+		supabasePgDatabase)
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
@@ -37,7 +59,7 @@ func InitSupabase() error {
 	}
 
 	// Test the connection
-	ctx, cancel := context.WithTimeout(context.Background(), 5)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := db.PingContext(ctx); err != nil {
@@ -53,5 +75,6 @@ func CloseSupabase() error {
 	if DB != nil {
 		return DB.Close()
 	}
+	// nothing to close when using service role key
 	return nil
 }

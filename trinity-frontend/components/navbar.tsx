@@ -22,6 +22,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ModeToggle } from "@/components/for-referencing/mode-toggle"
+import { getRoleFromToken, hasToken, isTokenExpired, removeToken } from "@/lib/auth"
+import { useRouter } from "next/navigation"
 
 export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -42,6 +44,9 @@ export function Navbar() {
 
   useEffect(() => {
     const updateHeight = () => {
+    const router = useRouter()
+    const [userRole, setUserRole] = useState<string | null>(null)
+    const [isAuthenticated, setIsAuthenticated] = useState(false)
       if (navRef.current) {
         const height = navRef.current.offsetHeight
         document.documentElement.style.setProperty('--navbar-height', `${height}px`)
@@ -56,6 +61,21 @@ export function Navbar() {
 
   const scrollToSection = (e: React.MouseEvent<HTMLAnchorElement>, sectionId: string) => {
     e.preventDefault()
+
+    useEffect(() => {
+      if (typeof window === "undefined") return
+      const tokenPresent = hasToken() && !isTokenExpired()
+      setIsAuthenticated(tokenPresent)
+      setUserRole(tokenPresent ? getRoleFromToken() : null)
+
+      const onStorage = () => {
+        const present = hasToken() && !isTokenExpired()
+        setIsAuthenticated(present)
+        setUserRole(present ? getRoleFromToken() : null)
+      }
+      window.addEventListener('storage', onStorage)
+      return () => window.removeEventListener('storage', onStorage)
+    }, [])
     if (window.location.pathname !== "/") {
       window.location.href = `/#${sectionId}`
       return
@@ -100,7 +120,7 @@ export function Navbar() {
           <NavLinks scrollToSection={scrollToSection} />
           <ModeToggle />
         </div>
-
+            <NavLinks scrollToSection={scrollToSection} userRole={userRole} isAuthenticated={isAuthenticated} onLogout={() => { removeToken(); setIsAuthenticated(false); setUserRole(null); router.push('/login') }} />
         <div className="flex md:hidden items-center gap-2">
           <ModeToggle />
           <Button variant="ghost" size="icon" onClick={() => setIsMenuOpen(!isMenuOpen)} aria-label="Toggle menu">
@@ -116,7 +136,7 @@ export function Navbar() {
             <NavLinks scrollToSection={scrollToSection} mobile onClick={() => setIsMenuOpen(false)} />
           </div>
         </div>
-      )}
+              <NavLinks scrollToSection={scrollToSection} mobile userRole={userRole} isAuthenticated={isAuthenticated} onClick={() => setIsMenuOpen(false)} onLogout={() => { removeToken(); setIsAuthenticated(false); setUserRole(null); router.push('/login') }} />
     </nav>
   )
 }
@@ -124,7 +144,7 @@ export function Navbar() {
 function NavLinks({ mobile = false, scrollToSection, onClick }: { mobile?: boolean; scrollToSection: (e: React.MouseEvent<HTMLAnchorElement>, sectionId: string) => void; onClick?: () => void }) {
   const linkClass = mobile
     ? "block py-2 text-foreground hover:text-primary transition-colors"
-    : "hover:text-primary transition-colors"
+  function NavLinks({ mobile = false, scrollToSection, onClick, userRole, isAuthenticated, onLogout }: { mobile?: boolean; scrollToSection: (e: React.MouseEvent<HTMLAnchorElement>, sectionId: string) => void; onClick?: () => void; userRole?: string | null; isAuthenticated?: boolean; onLogout?: () => void }) {
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -183,16 +203,28 @@ function NavLinks({ mobile = false, scrollToSection, onClick }: { mobile?: boole
               <Link href="/room-booking" className={linkClass}>Booking</Link>
             </DropdownMenuItem>
 
-            <DropdownMenuItem asChild onMouseEnter={openDropdown} onMouseLeave={closeDropdown}>
-              <Link href="/blog" className={linkClass}>Overview</Link>
-            </DropdownMenuItem>
+        {isAuthenticated && userRole === "admin" && (
+          <a href="/admin" className={linkClass} onClick={onClick}>
+            Admin
+          </a>
+        )}
 
-            <DropdownMenuItem asChild onMouseEnter={openDropdown} onMouseLeave={closeDropdown}>
-              <Link href="/calendar" className={linkClass}>Calendar</Link>
-            </DropdownMenuItem>
-
-            <DropdownMenuItem asChild onMouseEnter={openDropdown} onMouseLeave={closeDropdown}>
-              <Link href="/day-view" className={linkClass}>Day-view</Link>
+        {!isAuthenticated ? (
+          <a href="/login" className={linkClass} onClick={onClick}>
+            <button
+              className={linkClass + " bg-primary text-white px-4 py-2 rounded-md hover:text-black hover:bg-red-200 transition-colors"}
+            >
+              Login
+            </button>
+          </a>
+        ) : (
+          <div className={mobile ? "pt-2" : ""}>
+            <div className={linkClass + " flex items-center gap-2"}>
+              <span className="text-sm">{userRole === "admin" ? "Admin" : "Account"}</span>
+              <button onClick={onLogout} className="ml-2 text-sm underline">Logout</button>
+            </div>
+          </div>
+        )}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
