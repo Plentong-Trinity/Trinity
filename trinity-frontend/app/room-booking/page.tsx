@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation"; // Correct import for App Router
 import Link from "next/link";
 import { ArrowLeft, MapPin, Users, Calendar, Clock, AlertTriangle, ChevronRight, Loader2, ChevronLeft } from "lucide-react";
@@ -52,7 +52,7 @@ const ROOM_DATA_FLOOR_2 = [
   { id: '7', label: 'Room 7', grid: 'col-start-4 col-span-2 row-start-5 row-span-2', style:'my-1 ml-1 mr-0.5' },
   { id: '6', label: 'Room 6', grid: 'col-start-6 col-span-2 row-start-5 row-span-2', style:'my-1 mx-0.5' },
   { id: '4', label: 'Room 4', grid: 'col-start-7 row-start-1 row-span-2', style:'my-1' },
-  { id: '5', label: 'Room H', grid: 'col-start-8 row-start-1 row-span-2', style:'my-1' },
+  { id: '5', label: 'Room 5', grid: 'col-start-8 row-start-1 row-span-2', style:'my-1' },
   { id: 'PH', label: 'Parish House', grid: 'col-start-9 col-span-2 row-start-1 row-span-2 bg-slate-50', isService: true, style:'my-1 mx-1' },
   { id: 'WL1', label: 'WALL1', grid: 'col-start-4 col-span-2 row-start-1 row-span-4 bg-slate-50', isService: true, style:'my-1 mx-1' },
   { id: 'ST', label: 'Staircase', grid: 'col-start-6 col-span-1 row-start-1 row-span-4 bg-slate-50', isService: true, style:'my-1 mx-0.5' },
@@ -69,6 +69,16 @@ export default function BookingPage() {
   const [selectedSingleDate, setSelectedSingleDate] = useState<Date | null>(null);
 
   const roomData = currentFloor === 'floor1' ? ROOM_DATA_FLOOR_1 : ROOM_DATA_FLOOR_2;
+
+  const roomLabelMap = useMemo(
+    () => [...ROOM_DATA_FLOOR_1, ...ROOM_DATA_FLOOR_2].reduce<Record<string, string>>((map, room) => {
+      map[room.id] = room.label;
+      return map;
+    }, {}),
+    []
+  );
+
+  const getRoomLabel = (roomId: string) => roomLabelMap[roomId] || roomId;
 
   const toggleRoom = (id: string, isService: boolean) => {
     if (isService) return;
@@ -97,13 +107,18 @@ export default function BookingPage() {
   };
 
   const handleBooking = (type: 'single' | 'multi') => {
+    if (selectedRooms.length === 0) return;
+
+    sessionStorage.setItem('selectedRooms', JSON.stringify(selectedRooms));
+    const roomsParam = encodeURIComponent(selectedRooms.join(','));
+
     if (type === 'single') {
       setLoadingType('single');
       setIsSingleDayCalendarOpen(true);
       setIsBookingDialogOpen(false);
     } else {
       setLoadingType('multi');
-      router.push('/calendar');
+      router.push(`/calendar?rooms=${roomsParam}`);
     }
   };
 
@@ -127,14 +142,14 @@ export default function BookingPage() {
     setIsSingleDayCalendarOpen(false);
     
     if (selectedSingleDate) {
-      // Save selected rooms to session storage
       sessionStorage.setItem("selectedRooms", JSON.stringify(selectedRooms));
-      
+      const roomsParam = encodeURIComponent(selectedRooms.join(','));
+
       const year = selectedSingleDate.getFullYear();
       const month = String(selectedSingleDate.getMonth() + 1).padStart(2, '0');
       const day = String(selectedSingleDate.getDate()).padStart(2, '0');
       const dateString = `${year}-${month}-${day}`;
-      router.push(`/day-view?date=${dateString}`);
+      router.push(`/day-view?date=${dateString}&rooms=${roomsParam}`);
     }
     
     setSelectedSingleDate(null);
@@ -256,13 +271,13 @@ export default function BookingPage() {
               <DialogTitle>Choose Booking Type</DialogTitle>
               <div className="space-y-2">
                 <p className="text-sm text-gray-600">You have selected:</p>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="flex flex-wrap gap-2">
                   {selectedRooms.map((room) => (
                     <div
                       key={room}
                       className="bg-primary text-primary-foreground px-3 py-1 rounded text-sm font-medium text-center"
                     >
-                      {room}
+                      {getRoomLabel(room)}
                     </div>
                   ))}
                 </div>

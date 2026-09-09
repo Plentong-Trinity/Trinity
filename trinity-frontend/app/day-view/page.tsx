@@ -48,7 +48,7 @@ type EventBlockProps = {
 
 const HOUR_HEIGHT = 64;
 const START_HOUR = 8;
-const END_HOUR = 22;
+const END_HOUR = 23;
 const TOTAL_MINUTES = (END_HOUR - START_HOUR) * 60;
 const HOURS = Array.from(
   { length: END_HOUR - START_HOUR + 1 },
@@ -432,6 +432,7 @@ export default function Page() {
   const [selectedStartTime, setSelectedStartTime] = useState("");
   const [selectedEndTime, setSelectedEndTime] = useState("");
   const [timeError, setTimeError] = useState<string | null>(null);
+  const [selectedRooms, setSelectedRooms] = useState<string[]>([]);
 
   useEffect(() => {
     const raw = sessionStorage.getItem("calendarSchedule");
@@ -505,6 +506,32 @@ export default function Page() {
     }
   }, []);
 
+  useEffect(() => {
+    const roomsParam = searchParams.get("rooms");
+
+    if (roomsParam) {
+      const parsedRooms = roomsParam
+        .split(",")
+        .map((room) => room.trim())
+        .filter(Boolean);
+
+      if (parsedRooms.length) {
+        setSelectedRooms(parsedRooms);
+        sessionStorage.setItem("selectedRooms", JSON.stringify(parsedRooms));
+      }
+    } else {
+      const storedRooms = sessionStorage.getItem("selectedRooms");
+      if (storedRooms) {
+        try {
+          const parsed = JSON.parse(storedRooms);
+          if (Array.isArray(parsed)) setSelectedRooms(parsed);
+        } catch (error) {
+          console.error("Failed to parse selectedRooms:", error);
+        }
+      }
+    }
+  }, [searchParams]);
+
   const handleConfirmTime = () => {
     if (!selectedStartTime || !selectedEndTime) {
       setTimeError("Please pick a valid window range.");
@@ -516,7 +543,19 @@ export default function Page() {
     setIsTimeDialogOpen(false);
     
     const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-    router.push(`/form?date=${dateString}`);
+    const params = new URLSearchParams({ date: dateString });
+
+    if (selectedRooms.length > 0) {
+      params.set("rooms", selectedRooms.join(","));
+    }
+    if (selectedStartTime) {
+      params.set("start", selectedStartTime);
+    }
+    if (selectedEndTime) {
+      params.set("end", selectedEndTime);
+    }
+
+    router.push(`/form?${params.toString()}`);
   };
 
   const handleEmptySpaceClick = (clickedTime: string) => {
