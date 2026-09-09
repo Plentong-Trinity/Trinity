@@ -68,16 +68,16 @@ export function LoginSection() {
     <section id="login" className="py-20">
       <div className="container mx-auto px-4">
         <div className="max-w-3xl mx-auto text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">Authentication</h2>
+          <h2 className="text-3xl md:text-4xl font-bold mb-4">Login</h2>
           <div className="w-20 h-1 bg-primary mx-auto mb-6"></div>
         </div>
 
         <div className="flex justify-center">
           <Card className="bg-card/50 backdrop-blur-sm border-primary/20 w-full max-w-md">
             <CardHeader>
-              <CardTitle>{isLoggedIn ? "Welcome" : "Login"}</CardTitle>
-              <CardDescription>
-                {isLoggedIn ? "You are logged in" : "Sign in with your credentials"}
+              <CardTitle className="text-xl">{isLoggedIn ? "Welcome" : "Login"}</CardTitle>
+                <CardDescription className={(isLoggedIn ? "hide h-0" : "")}>
+                  {isLoggedIn ? "" : "Sign in with your credentials"}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -103,6 +103,7 @@ export function LoginSection() {
                       name="email"
                       type="email"
                       placeholder="admin@example.com"
+                      className="font-sans normal-case focus:ring-blue-500" 
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required

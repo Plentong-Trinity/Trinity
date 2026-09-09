@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -42,9 +43,13 @@ type LoginResponse struct {
 	Message string               `json:"message"`
 }
 
-// GetJWTSecret retrieves the JWT secret from environment variables
+// GetJWTSecret retrieves the Supabase legacy JWT secret from environment variables.
 func GetJWTSecret() string {
-	secret := os.Getenv("JWT_SECRET")
+	secret := os.Getenv("SUPABASE_JWT_SECRET")
+	if secret == "" {
+		// Keep existing deployments working while they migrate the variable name.
+		secret = os.Getenv("JWT_SECRET")
+	}
 	if secret == "" {
 		// For development - MUST change in production!
 		secret = "your-super-secret-jwt-key-change-in-production"
@@ -69,8 +74,15 @@ func Login(c *gin.Context) {
 
 	// Get user from database
 	userRepo := repository.NewUserRepository()
+	log.Printf("Attempting to retrieve user with email: %s", loginReq.Email)
 	user, err := userRepo.GetUserByEmail(ctx, loginReq.Email)
 	if err != nil {
+		if err.Error() == "database is not initialized" {
+			c.JSON(http.StatusServiceUnavailable, gin.H{
+				"error": "Authentication service unavailable",
+			})
+			return
+		}
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"error": "Invalid email or password",
 		})
@@ -85,7 +97,6 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	// Verify password
 	if !utils.VerifyPassword(user.PasswordHash, loginReq.Password) {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"error": "Invalid email or password",
@@ -102,7 +113,7 @@ func Login(c *gin.Context) {
 		UserID: user.ID,
 		Role:   string(user.Role),
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(12 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(time.Now()),
 			Subject:   user.ID,
@@ -150,6 +161,12 @@ func Signup(c *gin.Context) {
 		})
 		return
 	}
+	if err != nil && err.Error() == "database is not initialized" {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": "Authentication service unavailable",
+		})
+		return
+	}
 
 	// Hash password
 	hashedPassword, err := utils.HashPassword(signupReq.Password)
@@ -190,6 +207,9 @@ func ValidateToken(tokenString string) (*Claims, error) {
 	claims := &Claims{}
 
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		if token.Method != jwt.SigningMethodHS256 {
+			return nil, jwt.ErrSignatureInvalid
+		}
 		return []byte(GetJWTSecret()), nil
 	})
 
