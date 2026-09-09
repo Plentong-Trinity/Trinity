@@ -1,157 +1,95 @@
-/**
- * Supabase client utilities for frontend
- * Note: This is a TypeScript client, but current implementation uses REST API
- * For full Supabase integration, install @supabase/supabase-js
- */
+import { createClient, SupabaseClient } from "@supabase/supabase-js"
 
-// API endpoints
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+// Use public env vars (replace with real keys in .env.local)
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
 
-export interface User {
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  // eslint-disable-next-line no-console
+  console.warn("Supabase URL or anon key missing — insert NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local")
+}
+
+export const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+export type UserMetadata = {
   id: string
-  email: string
-  name: string
-  phone?: string
-  role: "user" | "admin" | "staff"
-  is_active: boolean
-  created_at: string
-  updated_at: string
-  last_login_at?: string
+  email?: string
+  name?: string
 }
 
-export interface AuthResponse {
-  token: string
-  user: User
-  message: string
-}
-
-export interface SignupData {
+export type SignupData = {
   email: string
   password: string
-  name: string
+  name?: string
   phone?: string
 }
 
-export interface LoginData {
+export type LoginData = {
   email: string
   password: string
 }
 
-/**
- * Sign up a new user
- */
-export async function signup(data: SignupData): Promise<AuthResponse> {
-  const response = await fetch(`${API_URL}/auth/signup`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(data),
-  })
-
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || "Signup failed")
-  }
-
-  return response.json()
-}
-
-/**
- * Log in a user
- */
-export async function login(data: LoginData): Promise<AuthResponse> {
-  const response = await fetch(`${API_URL}/auth/login`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(data),
-  })
-
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || "Login failed")
-  }
-
-  return response.json()
-}
-
-/**
- * Log out a user
- */
-export async function logout(): Promise<void> {
-  const token = localStorage.getItem("auth_token")
-  if (!token) return
-
-  try {
-    await fetch(`${API_URL}/auth/logout`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
+export async function signup(data: SignupData) {
+  const { email, password, name } = data
+  const res = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        name,
       },
-    })
-  } catch (error) {
-    console.warn("Logout request failed:", error)
-  } finally {
-    localStorage.removeItem("auth_token")
+    },
+  })
+
+  if (res.error) throw res.error
+  return res.data
+}
+
+export async function login(data: LoginData) {
+  const { email, password } = data
+  const res = await supabase.auth.signInWithPassword({ email, password })
+  if (res.error) throw res.error
+
+  // store access token for authenticated requests to your backend if needed
+  const session = res.data.session
+  if (session && typeof window !== "undefined") {
+    localStorage.setItem("supabase_access_token", session.access_token)
+  }
+
+  return res.data
+}
+
+export async function logout() {
+  await supabase.auth.signOut()
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("supabase_access_token")
   }
 }
 
-/**
- * Make an authenticated API request
- */
-export async function authenticatedFetch(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<Response> {
-  const token = localStorage.getItem("auth_token")
-
+export async function authenticatedFetch(endpoint: string, options: RequestInit = {}) {
+  const token = typeof window !== "undefined" ? localStorage.getItem("supabase_access_token") : null
   const headers: HeadersInit = {
     "Content-Type": "application/json",
-    ...options.headers,
+    ...(options.headers || {}),
   }
+  if (token) headers["Authorization"] = `Bearer ${token}`
 
-  if (token) {
-    headers.Authorization = `Bearer ${token}`
-  }
-
-  return fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers,
-  })
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+  return fetch(`${API_URL}${endpoint}`, { ...options, headers })
 }
 
-/**
- * Check if user is authenticated
- */
 export function isAuthenticated(): boolean {
   if (typeof window === "undefined") return false
-  const token = localStorage.getItem("auth_token")
-  return token !== null && token !== ""
+  const token = localStorage.getItem("supabase_access_token")
+  return !!token
 }
 
-/**
- * Get the current auth token
- */
 export function getAuthToken(): string | null {
   if (typeof window === "undefined") return null
-  return localStorage.getItem("auth_token")
+  return localStorage.getItem("supabase_access_token")
 }
 
-/**
- * Set the auth token
- */
-export function setAuthToken(token: string): void {
-  if (typeof window === "undefined") return
-  localStorage.setItem("auth_token", token)
-}
-
-/**
- * Clear the auth token
- */
 export function clearAuthToken(): void {
   if (typeof window === "undefined") return
-  localStorage.removeItem("auth_token")
+  localStorage.removeItem("supabase_access_token")
 }
