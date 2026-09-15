@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -19,50 +20,48 @@ var SupabaseURL string
 
 // InitSupabase initializes the Supabase database connection
 func InitSupabase() error {
-	// Get Supabase connection string from environment
-	supabaseURL := os.Getenv("SUPABASE_URL")
-	supabasePgPassword := os.Getenv("SUPABASE_PG_PASSWORD")
-	supabasePgUser := os.Getenv("SUPABASE_PG_USER")
-	supabasePgDatabase := os.Getenv("SUPABASE_PG_DATABASE")
-	serviceRole := os.Getenv("SUPABASE_SERVICE_ROLE_KEY")
+	connStr := strings.TrimSpace(os.Getenv("DATABASE_URL"))
+	if connStr == "" {
+		supabaseURL := strings.TrimSpace(os.Getenv("SUPABASE_URL"))
+		supabasePgPassword := strings.TrimSpace(os.Getenv("SUPABASE_PG_PASSWORD"))
+		supabasePgUser := strings.TrimSpace(os.Getenv("SUPABASE_PG_USER"))
+		supabasePgDatabase := strings.TrimSpace(os.Getenv("SUPABASE_PG_DATABASE"))
 
-	// If a Supabase Service Role key is provided, prefer that and skip direct DB connection.
-	if serviceRole != "" && supabaseURL != "" {
-		SupabaseServiceRoleKey = serviceRole
-		SupabaseURL = supabaseURL
-		// Do not attempt a Postgres connection; caller can use the service role key.
-		return nil
+		if supabaseURL == "" || supabasePgPassword == "" || supabasePgUser == "" || supabasePgDatabase == "" {
+			return fmt.Errorf("missing Supabase database configuration")
+		}
+
+		host := strings.TrimPrefix(strings.TrimPrefix(supabaseURL, "https://"), "http://")
+		host = strings.TrimSuffix(host, "/")
+		host = strings.TrimPrefix(host, "db.")
+		if strings.Contains(host, ".supabase.co") {
+			host = strings.TrimSuffix(host, ".supabase.co")
+			host = "db." + host + ".supabase.co"
+		} else {
+			host = "db." + host + ".supabase.co"
+		}
+		connStr = fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=require",
+			supabasePgUser,
+			supabasePgPassword,
+			host,
+			supabasePgDatabase,
+		)
 	}
 
-	if supabaseURL == "" || supabasePgPassword == "" || supabasePgUser == "" || supabasePgDatabase == "" {
-		return fmt.Errorf("missing Supabase environment variables")
+	if DB != nil {
+		_ = DB.Close()
 	}
-	// Build Postgres connection string using configured database
-	// supabaseURL may be the full project url (https://xxxxx.supabase.co)
-	// strip scheme if present when building host portion
-	host := supabaseURL
-	if len(host) > 8 && host[:8] == "https://" {
-		host = host[8:]
-	} else if len(host) > 7 && host[:7] == "http://" {
-		host = host[7:]
-	}
-
-	connStr := fmt.Sprintf("postgres://%s:%s@db.%s/%s?sslmode=require",
-		supabasePgUser,
-		supabasePgPassword,
-		host,
-		supabasePgDatabase)
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
-		return fmt.Errorf("failed to connect to Supabase: %w", err)
+		return fmt.Errorf("failed to open Supabase connection: %w", err)
 	}
 
-	// Test the connection
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := db.PingContext(ctx); err != nil {
+		_ = db.Close()
 		return fmt.Errorf("failed to ping Supabase: %w", err)
 	}
 

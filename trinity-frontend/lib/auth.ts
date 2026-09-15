@@ -3,7 +3,10 @@
  * This now integrates with Supabase backend for real authentication
  */
 
+import { RefreshCw } from "lucide-react"
+
 const TOKEN_KEY = "auth_token"
+const AUTH_STATE_EVENT = "auth-state-changed"
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
 
 export interface User {
@@ -45,6 +48,7 @@ export function getToken(): string | null {
 export function setToken(token: string): void {
   if (typeof window === "undefined") return
   localStorage.setItem(TOKEN_KEY, token)
+  window.dispatchEvent(new Event(AUTH_STATE_EVENT))
 }
 
 /**
@@ -53,6 +57,7 @@ export function setToken(token: string): void {
 export function removeToken(): void {
   if (typeof window === "undefined") return
   localStorage.removeItem(TOKEN_KEY)
+  window.dispatchEvent(new Event(AUTH_STATE_EVENT))
 }
 
 /**

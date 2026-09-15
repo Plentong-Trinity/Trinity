@@ -76,3 +76,8 @@ CREATE INDEX idx_users_audit_log_created_at ON users_audit_log(created_at);
 -- Password: admin123 (you'll need to hash this with bcrypt in your application)
 -- INSERT INTO users (email, password_hash, name, role, is_active)
 -- VALUES ('admin@example.com', '$2a$10$...', 'Admin User', 'admin', TRUE);
+
+-- Change a user's role manually from the Supabase SQL Editor.
+-- UPDATE users SET role = 'admin' WHERE email = 'person@example.com';
+-- UPDATE users SET role = 'staff' WHERE email = 'person@example.com';
+-- UPDATE users SET role = 'user' WHERE email = 'person@example.com';

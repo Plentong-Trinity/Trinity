@@ -47,17 +47,25 @@ export function Navbar() {
 
   useEffect(() => {
     if (typeof window === "undefined") return
-    const tokenPresent = hasToken() && !isTokenExpired()
-    setIsAuthenticated(tokenPresent)
-    setUserRole(tokenPresent ? getRoleFromToken() : null)
 
-    const onStorage = () => {
-      const present = hasToken() && !isTokenExpired()
-      setIsAuthenticated(present)
-      setUserRole(present ? getRoleFromToken() : null)
+    const syncAuthState = () => {
+      const tokenPresent = hasToken() && !isTokenExpired()
+      setIsAuthenticated(tokenPresent)
+      setUserRole(tokenPresent ? getRoleFromToken() : null)
     }
+
+    syncAuthState()
+
+    const onStorage = () => syncAuthState()
+    const onAuthStateChanged = () => syncAuthState()
+
     window.addEventListener("storage", onStorage)
-    return () => window.removeEventListener("storage", onStorage)
+    window.addEventListener("auth-state-changed", onAuthStateChanged)
+
+    return () => {
+      window.removeEventListener("storage", onStorage)
+      window.removeEventListener("auth-state-changed", onAuthStateChanged)
+    }
   }, [])
 
   const scrollToSection = (e: React.MouseEvent<HTMLAnchorElement>, sectionId: string) => {
@@ -155,38 +163,27 @@ function NavLinks({ mobile = false, scrollToSection, onClick, userRole, isAuthen
 
           <DropdownMenuContent className="w-40" align="start" onMouseEnter={openDropdown} onMouseLeave={closeDropdown}>
             <DropdownMenuItem asChild onMouseEnter={openDropdown} onMouseLeave={closeDropdown}>
-              <Link href="/room-booking" className={linkClass}>Booking</Link>
+              <Link href="/overview" className={linkClass}>Overview</Link>
             </DropdownMenuItem>
 
+
             {isAuthenticated && userRole === "admin" && (
-              <DropdownMenuItem>
-                <Link href="/admin" className={linkClass} onClick={onClick}>Admin</Link>
+              <DropdownMenuItem asChild onMouseEnter={openDropdown} onMouseLeave={closeDropdown}>
+                <Link href="/room-booking" className={linkClass} onClick={onClick}>Booking</Link>
               </DropdownMenuItem>
             )}
 
-            {!isAuthenticated ? (
-              <DropdownMenuItem>
-                <Link href="/login" className={linkClass} onClick={onClick}>
-                  <button className={linkClass + " bg-primary text-white px-4 py-2 rounded-md hover:text-black hover:bg-red-200 transition-colors"}>Login</button>
-                </Link>
-              </DropdownMenuItem>
-            ) : (
-              <DropdownMenuItem>
-                <div className={mobile ? "pt-2" : ""}>
-                  <div className={linkClass + " flex items-center gap-2"}>
-                    <span className="text-sm">{userRole === "admin" ? "Admin" : "Account"}</span>
-                    <button onClick={onLogout} className="ml-2 text-sm underline">Logout</button>
-                  </div>
-                </div>
-              </DropdownMenuItem>
-            )}
-
+            
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
 
       {isAuthenticated && userRole === "admin" && (
         <Link href="/admin" className={linkClass} onClick={onClick}>Admin</Link>
+      )}
+
+      {isAuthenticated && userRole !== "admin" && (
+        <Link href="/" className={linkClass} onClick={onClick}>{userRole}</Link>
       )}
 
       {!isAuthenticated ? (
