@@ -73,3 +73,21 @@ func main() {
 	}
 	log.Println("Bye 👋")
 }
+
+// import (
+// 	"fmt"
+// 	"log"
+
+// 	"github.com/johnman136/Trinity/trinity-backend/internal/utils"
+// )
+
+// func main() {
+// 	password := "bbbbbb"
+
+// 	hash, err := utils.HashPassword(password)
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+
+// 	fmt.Println(hash)
+// }
