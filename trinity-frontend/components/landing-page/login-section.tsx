@@ -75,7 +75,7 @@ export function LoginSection() {
         <div className="flex justify-center">
           <Card className="bg-card/50 backdrop-blur-sm border-primary/20 w-full max-w-md">
             <CardHeader>
-              <CardTitle className="text-xl">{isLoggedIn ? "Welcome" : "Login"}</CardTitle>
+              <CardTitle className="text-xl">{(isLoggedIn ? "Welcome" : "Login")}</CardTitle>
                 <CardDescription className={(isLoggedIn ? "hide h-0" : "")}>
                   {isLoggedIn ? "" : "Sign in with your credentials"}
               </CardDescription>
