@@ -170,13 +170,11 @@ function NavLinks({ mobile = false, scrollToSection, onClick, userRole, userName
               <Link href="/overview" className={linkClass}>Overview</Link>
             </DropdownMenuItem>
 
-
-            {isAuthenticated && userRole === "admin" && (
+            {isAuthenticated && (userRole === "user" || userRole === "admin") && (
               <DropdownMenuItem asChild onMouseEnter={openDropdown} onMouseLeave={closeDropdown}>
                 <Link href="/room-booking" className={linkClass} onClick={onClick}>Booking</Link>
               </DropdownMenuItem>
             )}
-
             
           </DropdownMenuContent>
         </DropdownMenu>
@@ -216,6 +214,9 @@ function NavLinks({ mobile = false, scrollToSection, onClick, userRole, userName
           </DropdownMenuContent>
         </DropdownMenu>
       ) : null}
+      {isAuthenticated && userRole !== "admin" && (
+        <Link href="/user-dashboard" className={linkClass} onClick={onClick}>{userRole}</Link>
+      )}
 
       {!isAuthenticated ? (
         <Link href="/login" className={linkClass} onClick={onClick}>
