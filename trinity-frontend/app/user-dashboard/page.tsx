@@ -27,9 +27,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { useRequireAuth } from "@/hooks/use-auth"
+import { useRequireRole } from "@/hooks/use-auth"
 import { decodeToken, getToken } from "@/lib/auth"
 import { cn } from "@/lib/utils"
+import { LoadingPage } from "@/components/loading-page"
 
 type BookingStatus = "approved" | "pending" | "completed" | "cancelled"
 
@@ -128,7 +129,7 @@ function StatusBadge({ status }: { status: BookingStatus }) {
 }
 
 export default function UserDashboardPage() {
-  useRequireAuth()
+  const isCheckingAuth = useRequireRole("user")
 
   const [bookings, setBookings] = React.useState(initialBookings)
   const [selectedBooking, setSelectedBooking] = React.useState<Booking | null>(null)
@@ -169,6 +170,14 @@ export default function UserDashboardPage() {
       current.map((booking) => (booking.id === cancelledBooking.id ? cancelledBooking : booking))
     )
     setSelectedBooking(cancelledBooking)
+  }
+
+  if (isCheckingAuth === "denied") {
+    return <LoadingPage accessDenied />
+  }
+
+  if (isCheckingAuth) {
+    return <LoadingPage />
   }
 
   return (

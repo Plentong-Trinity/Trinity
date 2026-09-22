@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { login, hasToken, logout } from "@/lib/auth"
+import { login, hasToken, logout, isTokenExpired, getRoleFromToken } from "@/lib/auth"
 import { LogIn, LogOut } from "lucide-react"
 
 export function LoginSection() {
@@ -18,6 +18,7 @@ export function LoginSection() {
   const [password, setPassword] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+  const [userRole, setUserRole] = useState<string | null>(null)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -26,6 +27,9 @@ export function LoginSection() {
 
     try {
       await login(email, password)
+      const tokenPresent = hasToken() && !isTokenExpired()
+      const role = tokenPresent ? getRoleFromToken() : null
+      setUserRole(role)
       setMessage({
         type: "success",
         text: "Login successful! Redirecting...",
@@ -36,7 +40,11 @@ export function LoginSection() {
 
       // Redirect to admin page or dashboard after 1 second
       setTimeout(() => {
-        router.push("/admin")
+        if (tokenPresent && role === "admin") {
+          router.push("/admin")
+        } else {
+          router.push("/user-dashboard")
+        }
       }, 1000)
     } catch (error) {
       setMessage({

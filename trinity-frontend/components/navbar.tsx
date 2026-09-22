@@ -105,7 +105,7 @@ export function Navbar() {
         </Link>
 
         <div className={`hidden md:flex items-center gap-6 ${isHome ? (isScrolled ? "text-black" : "text-white") : "text-black"}`}>
-          <NavLinks scrollToSection={scrollToSection} userRole={userRole} userName={userName} isAuthenticated={isAuthenticated} onLogout={handleLogout} />
+          <NavLinks scrollToSection={scrollToSection} userRole={userRole} userName={userName} isAuthenticated={isAuthenticated} onLogout={handleLogout} navTextClass={isHome && !isScrolled ? "text-white" : "text-foreground"} />
           {/* <ModeToggle /> */}
         </div>
 
@@ -128,8 +128,8 @@ export function Navbar() {
   )
 }
 
-function NavLinks({ mobile = false, scrollToSection, onClick, userRole, userName, isAuthenticated, onLogout }: { mobile?: boolean; scrollToSection: (e: React.MouseEvent<HTMLAnchorElement>, sectionId: string) => void; onClick?: () => void; userRole?: string | null; userName?: string | null; isAuthenticated?: boolean; onLogout?: () => void }) {
-  const linkClass = mobile ? "block py-2 text-foreground hover:text-primary transition-colors" : "px-2 py-1 text-foreground hover:text-primary transition-colors"
+function NavLinks({ mobile = false, scrollToSection, onClick, userRole, userName, isAuthenticated, onLogout, navTextClass = "text-foreground" }: { mobile?: boolean; scrollToSection: (e: React.MouseEvent<HTMLAnchorElement>, sectionId: string) => void; onClick?: () => void; userRole?: string | null; userName?: string | null; isAuthenticated?: boolean; onLogout?: () => void; navTextClass?: string }) {
+  const linkClass = mobile ? "block py-2 text-foreground hover:text-primary transition-colors" : `px-2 py-1 ${navTextClass} hover:text-primary transition-colors`
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -184,6 +184,10 @@ function NavLinks({ mobile = false, scrollToSection, onClick, userRole, userName
         <Link href="/admin" className={linkClass} onClick={onClick}>Admin</Link>
       )}
 
+      {isAuthenticated && userRole !== "admin" && (
+        <Link href="/user-dashboard" className={linkClass} onClick={onClick}>{userRole}</Link>
+      )}
+
       {isAuthenticated ? (
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
@@ -195,10 +199,10 @@ function NavLinks({ mobile = false, scrollToSection, onClick, userRole, userName
               <UserCircle className="h-8 w-8" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40">
+          <DropdownMenuContent align="end" className="">
             {isAuthenticated && (
               <DropdownMenuItem disabled className="flex flex-col items-start gap-0">
-                <span className="font-medium">{userName || "User"}</span>
+                <span className="font-medium text-base">{userName || "User"}</span>
                 {userRole && <span className="text-xs capitalize">{userRole}</span>}
               </DropdownMenuItem>
             )}
@@ -214,9 +218,6 @@ function NavLinks({ mobile = false, scrollToSection, onClick, userRole, userName
           </DropdownMenuContent>
         </DropdownMenu>
       ) : null}
-      {isAuthenticated && userRole !== "admin" && (
-        <Link href="/user-dashboard" className={linkClass} onClick={onClick}>{userRole}</Link>
-      )}
 
       {!isAuthenticated ? (
         <Link href="/login" className={linkClass} onClick={onClick}>
