@@ -195,6 +195,14 @@ export function getRoleFromToken(): string | null {
   return (decoded?.role as string) || null
 }
 
+export function getNameFromToken(): string | null {
+  const token = getToken()
+  if (!token) return null
+
+  const decoded = decodeToken(token)
+  return (decoded?.name as string) || null
+}
+
 /**
  * Check if the token is expired
  */

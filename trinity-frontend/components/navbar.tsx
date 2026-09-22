@@ -5,21 +5,23 @@ import { usePathname, useRouter } from "next/navigation"
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Menu, X } from "lucide-react"
+import { Menu, X, UserCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ModeToggle } from "@/components/for-referencing/mode-toggle"
-import { getRoleFromToken, hasToken, isTokenExpired, removeToken } from "@/lib/auth"
+import { getRoleFromToken, getNameFromToken, hasToken, isTokenExpired, removeToken } from "@/lib/auth"
 
 export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
   const [userRole, setUserRole] = useState<string | null>(null)
+  const [userName, setUserName] = useState<string | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const pathname = usePathname()
   const isHome = pathname === "/"
@@ -52,6 +54,8 @@ export function Navbar() {
       const tokenPresent = hasToken() && !isTokenExpired()
       setIsAuthenticated(tokenPresent)
       setUserRole(tokenPresent ? getRoleFromToken() : null)
+      setUserName(tokenPresent ? getNameFromToken() : null)
+
     }
 
     syncAuthState()
@@ -101,12 +105,12 @@ export function Navbar() {
         </Link>
 
         <div className={`hidden md:flex items-center gap-6 ${isHome ? (isScrolled ? "text-black" : "text-white") : "text-black"}`}>
-          <NavLinks scrollToSection={scrollToSection} userRole={userRole} isAuthenticated={isAuthenticated} onLogout={handleLogout} />
-          <ModeToggle />
+          <NavLinks scrollToSection={scrollToSection} userRole={userRole} userName={userName} isAuthenticated={isAuthenticated} onLogout={handleLogout} />
+          {/* <ModeToggle /> */}
         </div>
 
         <div className="flex md:hidden items-center gap-2">
-          <ModeToggle />
+          {/* <ModeToggle /> */}
           <Button variant="ghost" size="icon" onClick={() => setIsMenuOpen(!isMenuOpen)} aria-label="Toggle menu">
             {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
@@ -116,7 +120,7 @@ export function Navbar() {
       {isMenuOpen && (
         <div className="md:hidden bg-background/95 backdrop-blur-md">
           <div className="container mx-auto px-4 py-4 flex flex-col gap-4">
-            <NavLinks scrollToSection={scrollToSection} mobile onClick={() => setIsMenuOpen(false)} userRole={userRole} isAuthenticated={isAuthenticated} onLogout={() => { setIsMenuOpen(false); handleLogout(); }} />
+            <NavLinks scrollToSection={scrollToSection} mobile onClick={() => setIsMenuOpen(false)} userRole={userRole} userName={userName} isAuthenticated={isAuthenticated} onLogout={() => { setIsMenuOpen(false); handleLogout(); }} />
           </div>
         </div>
       )}
@@ -124,7 +128,7 @@ export function Navbar() {
   )
 }
 
-function NavLinks({ mobile = false, scrollToSection, onClick, userRole, isAuthenticated, onLogout }: { mobile?: boolean; scrollToSection: (e: React.MouseEvent<HTMLAnchorElement>, sectionId: string) => void; onClick?: () => void; userRole?: string | null; isAuthenticated?: boolean; onLogout?: () => void }) {
+function NavLinks({ mobile = false, scrollToSection, onClick, userRole, userName, isAuthenticated, onLogout }: { mobile?: boolean; scrollToSection: (e: React.MouseEvent<HTMLAnchorElement>, sectionId: string) => void; onClick?: () => void; userRole?: string | null; userName?: string | null; isAuthenticated?: boolean; onLogout?: () => void }) {
   const linkClass = mobile ? "block py-2 text-foreground hover:text-primary transition-colors" : "px-2 py-1 text-foreground hover:text-primary transition-colors"
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
@@ -180,6 +184,36 @@ function NavLinks({ mobile = false, scrollToSection, onClick, userRole, isAuthen
         <Link href="/admin" className={linkClass} onClick={onClick}>Admin</Link>
       )}
 
+      {isAuthenticated ? (
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="p-1 text-foreground hover:text-primary transition-colors"
+              aria-label="Open user menu"
+            >
+              <UserCircle className="h-8 w-8" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40">
+            {isAuthenticated && (
+              <DropdownMenuItem disabled className="flex flex-col items-start gap-0">
+                <span className="font-medium">{userName || "User"}</span>
+                {userRole && <span className="text-xs capitalize">{userRole}</span>}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href="/change-password" onClick={onClick}>Change password</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => { onLogout?.(); onClick?.(); }}
+            >
+              Sign out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
       {isAuthenticated && userRole !== "admin" && (
         <Link href="/user-dashboard" className={linkClass} onClick={onClick}>{userRole}</Link>
       )}

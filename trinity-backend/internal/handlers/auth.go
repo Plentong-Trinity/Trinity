@@ -19,6 +19,7 @@ type Claims struct {
 	Email  string `json:"email"`
 	UserID string `json:"user_id"`
 	Role   string `json:"role"`
+	Name   string `json:"name"`
 	jwt.RegisteredClaims
 }
 
@@ -112,6 +113,7 @@ func Login(c *gin.Context) {
 		Email:  user.Email,
 		UserID: user.ID,
 		Role:   string(user.Role),
+		Name:   user.Name,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(12 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

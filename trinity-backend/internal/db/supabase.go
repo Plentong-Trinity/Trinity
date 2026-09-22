@@ -34,13 +34,13 @@ func InitSupabase() error {
 		host := strings.TrimPrefix(strings.TrimPrefix(supabaseURL, "https://"), "http://")
 		host = strings.TrimSuffix(host, "/")
 		host = strings.TrimPrefix(host, "db.")
-		if strings.Contains(host, ".supabase.co") {
-			host = strings.TrimSuffix(host, ".supabase.co")
-			host = "db." + host + ".supabase.co"
-		} else {
-			host = "db." + host + ".supabase.co"
-		}
-		connStr = fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=require",
+		// if strings.Contains(host, ".supabase.co") {
+		// 	host = strings.TrimSuffix(host, ".supabase.co")
+		// 	host = "db." + host + ".supabase.co"
+		// } else {
+		// 	host = "db." + host + ".supabase.co"
+		// }
+		connStr = fmt.Sprintf("postgresql://%s:%s@%s/%s?sslmode=require",
 			supabasePgUser,
 			supabasePgPassword,
 			host,
@@ -66,6 +66,22 @@ func InitSupabase() error {
 	}
 
 	DB = db
+
+	// type LoginRequest struct {
+	// 	Email    string `json:"email" binding:"required,email"`
+	// 	Password string `json:"password" binding:"required,min=6"`
+	// }
+
+	// var loginReq LoginRequest
+	// userRepo := repository.NewUserRepository()
+	// log.Printf("Attempting to retrieve user with email: %s", loginReq.Email)
+	// user, err := userRepo.GetUserByEmail(ctx, loginReq.Email)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to retrieve user: %w", err)
+	// } else {
+	// 	log.Printf("Successfully retrieved user: %+v", user)
+	// }
+
 	return nil
 }
 

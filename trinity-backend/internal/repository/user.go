@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 
 	"github.com/johnman136/Trinity/trinity-backend/internal/db"
 	"github.com/johnman136/Trinity/trinity-backend/internal/models"
@@ -55,6 +56,7 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*mod
 	if lastLoginAt.Valid {
 		user.LastLoginAt = &lastLoginAt.Time
 	}
+	log.Printf("Successfully retrieved user: %+v", user.Name)
 
 	return &user, nil
 }

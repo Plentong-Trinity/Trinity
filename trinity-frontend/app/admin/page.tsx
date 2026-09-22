@@ -12,11 +12,26 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { useRequireRole } from "@/hooks/use-auth"
 
 type BookingStatus = "pending" | "approved" | "denied"
+
+type PendingBookingAction = {
+  id: string
+  status: BookingStatus
+}
 
 type RoomBooking = {
   id: string
@@ -151,6 +166,7 @@ export default function AdminPage() {
   const [specialMassSchedules, setSpecialMassSchedules] = React.useState<SpecialMassSchedule[]>(
     initialSpecialMassSchedules
   )
+  const [pendingBookingAction, setPendingBookingAction] = React.useState<PendingBookingAction | null>(null)
   const [bulletinForm, setBulletinForm] = React.useState({
     title: "",
     date: "",
@@ -167,6 +183,17 @@ export default function AdminPage() {
         booking.id === id ? { ...booking, status } : booking
       )
     )
+  }
+
+  function requestBookingStatusChange(id: string, status: BookingStatus) {
+    setPendingBookingAction({ id, status })
+  }
+
+  function confirmBookingStatusChange() {
+    if (!pendingBookingAction) return
+
+    updateBookingStatus(pendingBookingAction.id, pendingBookingAction.status)
+    setPendingBookingAction(null)
   }
 
   function handleBulletinUpload(event: React.FormEvent<HTMLFormElement>) {
@@ -380,7 +407,7 @@ function removeSpecialMassSchedule(scheduleId: string) {
                           <Button
                             size="sm"
                             className="gap-2 bg-emerald-600 hover:bg-emerald-700"
-                            onClick={() => updateBookingStatus(booking.id, "approved")}
+                            onClick={() => requestBookingStatusChange(booking.id, "approved")}
                           >
                             <CheckCircle2 className="h-4 w-4" /> Approve
                           </Button>
@@ -389,7 +416,7 @@ function removeSpecialMassSchedule(scheduleId: string) {
                             size="sm"
                             variant="destructive"
                             className="gap-2"
-                            onClick={() => updateBookingStatus(booking.id, "denied")}
+                            onClick={() => requestBookingStatusChange(booking.id, "denied")}
                           >
                             <XCircle className="h-4 w-4" /> Deny
                           </Button>
@@ -685,6 +712,41 @@ function removeSpecialMassSchedule(scheduleId: string) {
           </TabsContent>
         </Tabs>
       </div>
+
+      <AlertDialog
+        open={pendingBookingAction !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingBookingAction(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingBookingAction?.status === "approved"
+                ? "Approve this booking?"
+                : "Deny this booking?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingBookingAction?.status === "approved"
+                ? "This will mark the room booking as approved."
+                : "This will mark the room booking as denied."} This action can be changed later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmBookingStatusChange}
+              className={
+                pendingBookingAction?.status === "denied"
+                  ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  : "bg-emerald-600 text-white hover:bg-emerald-700"
+              }
+            >
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   )
 }
