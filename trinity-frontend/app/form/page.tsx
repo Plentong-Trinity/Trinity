@@ -13,6 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Upload, FileText } from "lucide-react";
 import { useRequireAuth } from "@/hooks/use-auth";
 import { LoadingPage } from "@/components/loading-page";
+import { createBooking } from "@/lib/booking";
+import { getRoleFromToken } from "@/lib/auth";
 
 const ROOM_DATA_FLOOR_1 = [
   { id: 'Park', label: 'Parking Lot', grid: 'col-start-1 col-span-2 row-start-1 row-span-6', style:'my-1' },
@@ -60,12 +62,14 @@ export default function FormPage() {
 
   const [formData, setFormData] = useState({
     applicant: "",
+    contactNumber: "",
     ministry: "",
     purpose: "",
     pax: "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentFloor, setCurrentFloor] = useState<'floor1' | 'floor2'>('floor1');
   const [isDragActive, setIsDragActive] = useState(false);
   const roomData = currentFloor === 'floor1' ? ROOM_DATA_FLOOR_1 : ROOM_DATA_FLOOR_2;
@@ -216,11 +220,54 @@ export default function FormPage() {
     setIsPreviewOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Validation logic...
-    alert("Form submitted successfully!");
-    router.push("/user-dashboard");
+
+    if (!selectedRooms.length) {
+      alert("Please select at least one room before submitting.");
+      return;
+    }
+
+    if (!selectedDate) {
+      alert("Please select a booking date.");
+      return;
+    }
+
+    if (!formData.applicant.trim() || !formData.contactNumber.trim() || !formData.ministry.trim() || !formData.purpose.trim() || !formData.pax) {
+      alert("Please complete all required booking fields.");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const roomLabel = selectedRoomNames.join(", ") || selectedRooms.join(", ");
+
+      await createBooking({
+        name: formData.applicant.trim(),
+        phone: formData.contactNumber.trim(),
+        pax: Number(formData.pax),
+        room: selectedRooms,
+        department: formData.ministry.trim(),
+        description: formData.purpose.trim(),
+        start_on: selectedDate || new Date().toISOString(),
+        end_on: selectedEndDate || selectedDate || new Date().toISOString(),
+      });
+
+      const userRole = getRoleFromToken();
+
+      alert("Form submitted successfully!");
+      if (userRole === "admin") {
+        router.push("/admin-dashboard");
+      } else {
+        router.push("/user-dashboard");
+      }
+    } catch (error) {
+      console.error("Booking submit failed:", error);
+      alert(error instanceof Error ? error.message : "Failed to submit booking.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (isCheckingAuth) {
@@ -329,7 +376,7 @@ export default function FormPage() {
               <form onSubmit={handleSubmit} className="space-y-6">
                 
                 {/* Applicant Info - Using normal-case to ensure case sensitivity */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
                   <div className="space-y-2">
                     <Label htmlFor="applicant" className="text-sm font-semibold">Applicant Name*</Label>
                     <Input 
@@ -339,6 +386,21 @@ export default function FormPage() {
                       required
                       value={formData.applicant} 
                       onChange={handleChange} 
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="contactNumber" className="text-sm font-semibold">Contact Number*</Label>
+                    <Input
+                      id="contactNumber"
+                      type="tel"
+                      placeholder="e.g. +65 9123 4567"
+                      className="font-sans"
+                      required
+                      value={formData.contactNumber}
+                      onChange={handleChange}
                     />
                   </div>
                   <div className="space-y-2">
@@ -360,7 +422,7 @@ export default function FormPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="purpose" className="text-sm font-semibold">Purpose of Use*</Label>
+                  <Label htmlFor="purpose" className="text-sm font-semibold">Activity Description*</Label>
                   <Textarea 
                     id="purpose" 
                     rows={3} 
@@ -432,8 +494,12 @@ export default function FormPage() {
                   )}
                 </div>
 
-                <Button type="submit" className="w-full bg-slate-900 hover:bg-black text-white h-12 rounded-lg font-bold transition-all shadow-lg active:scale-95">
-                  Submit Application
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full bg-slate-900 hover:bg-black text-white h-12 rounded-lg font-bold transition-all shadow-lg active:scale-95 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isSubmitting ? "Submitting..." : "Submit Application"}
                 </Button>
               </form>
               <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>

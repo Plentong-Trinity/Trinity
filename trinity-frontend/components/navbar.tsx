@@ -181,7 +181,7 @@ function NavLinks({ mobile = false, scrollToSection, onClick, userRole, userName
       </div>
 
       {isAuthenticated && userRole === "admin" && (
-        <Link href="/admin" className={linkClass} onClick={onClick}>Admin</Link>
+        <Link href="/admin-dashboard" className={linkClass} onClick={onClick}>Admin</Link>
       )}
 
       {isAuthenticated && userRole !== "admin" && (
