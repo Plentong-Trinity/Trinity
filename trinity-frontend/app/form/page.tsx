@@ -242,6 +242,8 @@ export default function FormPage() {
 
     try {
       const roomLabel = selectedRoomNames.join(", ") || selectedRooms.join(", ");
+      const startDateTime = selectedTime.start ? new Date(`${selectedDate}T${selectedTime.start}:00`) : new Date(`${selectedDate}T09:00:00`);
+      const endDateTime = selectedTime.end ? new Date(`${selectedEndDate || selectedDate}T${selectedTime.end}:00`) : new Date(`${selectedEndDate || selectedDate}T10:00:00`);
 
       await createBooking({
         name: formData.applicant.trim(),
@@ -250,8 +252,8 @@ export default function FormPage() {
         room: selectedRooms,
         department: formData.ministry.trim(),
         description: formData.purpose.trim(),
-        start_on: selectedDate || new Date().toISOString(),
-        end_on: selectedEndDate || selectedDate || new Date().toISOString(),
+        start_on: startDateTime.toISOString(),
+        end_on: endDateTime.toISOString(),
       });
 
       const userRole = getRoleFromToken();
