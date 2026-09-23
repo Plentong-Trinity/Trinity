@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Users, MapPin, Calendar, Clock, AlertTriangle, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -10,6 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Upload, FileText } from "lucide-react";
+import { useRequireAuth } from "@/hooks/use-auth";
+import { LoadingPage } from "@/components/loading-page";
 
 const ROOM_DATA_FLOOR_1 = [
   { id: 'Park', label: 'Parking Lot', grid: 'col-start-1 col-span-2 row-start-1 row-span-6', style:'my-1' },
@@ -40,7 +43,9 @@ const ROOM_DATA_FLOOR_2 = [
 ];
 
 export default function FormPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
+  const isCheckingAuth = useRequireAuth();
   const [selectedRooms, setSelectedRooms] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedEndDate, setSelectedEndDate] = useState<string>("");
@@ -215,7 +220,12 @@ export default function FormPage() {
     e.preventDefault();
     // Validation logic...
     alert("Form submitted successfully!");
+    router.push("/user-dashboard");
   };
+
+  if (isCheckingAuth) {
+    return <LoadingPage />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8 antialiased text-slate-900">

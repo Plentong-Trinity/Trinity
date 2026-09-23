@@ -24,13 +24,24 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { useRequireRole } from "@/hooks/use-auth"
+import { LoadingPage } from "@/components/loading-page"
 
 type BookingStatus = "pending" | "approved" | "denied"
+type BookingFilter = "all" | BookingStatus
 
 type PendingBookingAction = {
   id: string
   status: BookingStatus
+  denialReason: string
 }
 
 type RoomBooking = {
@@ -42,6 +53,7 @@ type RoomBooking = {
   time: string
   purpose: string
   status: BookingStatus
+  denialReason?: string
 }
 
 type Bulletin = {
@@ -156,7 +168,7 @@ const statusStyle: Record<BookingStatus, string> = {
 
 export default function AdminPage() {
   // Protect this page - only allow admin role
-  useRequireRole("admin")
+  const isCheckingAuth = useRequireRole("admin")
 
   const [bookings, setBookings] = React.useState<RoomBooking[]>(initialBookings)
   const [bulletins, setBulletins] = React.useState<Bulletin[]>(initialBulletins)
@@ -167,6 +179,9 @@ export default function AdminPage() {
     initialSpecialMassSchedules
   )
   const [pendingBookingAction, setPendingBookingAction] = React.useState<PendingBookingAction | null>(null)
+  const [selectedBooking, setSelectedBooking] = React.useState<RoomBooking | null>(null)
+  const [bookingFilter, setBookingFilter] = React.useState<BookingFilter>("all")
+  const [bookingPage, setBookingPage] = React.useState(1)
   const [bulletinForm, setBulletinForm] = React.useState({
     title: "",
     date: "",
@@ -176,24 +191,61 @@ export default function AdminPage() {
 
   const pendingCount = bookings.filter((booking) => booking.status === "pending").length
   const approvedCount = bookings.filter((booking) => booking.status === "approved").length
+  const filteredBookings = bookingFilter === "all"
+    ? bookings
+    : bookings.filter((booking) => booking.status === bookingFilter)
+  const bookingsPerPage = 10
+  const bookingPageCount = Math.max(1, Math.ceil(filteredBookings.length / bookingsPerPage))
+  const visibleBookings = filteredBookings.slice(
+    (bookingPage - 1) * bookingsPerPage,
+    bookingPage * bookingsPerPage
+  )
+  const pendingBooking = pendingBookingAction
+    ? bookings.find((booking) => booking.id === pendingBookingAction.id)
+    : null
 
-  function updateBookingStatus(id: string, status: BookingStatus) {
+  React.useEffect(() => {
+    setBookingPage((currentPage) => Math.min(currentPage, bookingPageCount))
+  }, [bookingPageCount])
+
+  if (isCheckingAuth === "denied") {
+    return <LoadingPage accessDenied />
+  }
+
+  function changeBookingFilter(filter: BookingFilter) {
+    setBookingFilter(filter)
+    setBookingPage(1)
+  }
+
+  function updateBookingStatus(id: string, status: BookingStatus, denialReason?: string) {
     setBookings((current) =>
       current.map((booking) =>
-        booking.id === id ? { ...booking, status } : booking
+        booking.id === id ? { ...booking, status, denialReason } : booking
       )
     )
   }
 
   function requestBookingStatusChange(id: string, status: BookingStatus) {
-    setPendingBookingAction({ id, status })
+    setSelectedBooking(null)
+    setPendingBookingAction({ id, status, denialReason: "" })
   }
 
   function confirmBookingStatusChange() {
     if (!pendingBookingAction) return
+    if (pendingBookingAction.status === "denied" && !pendingBookingAction.denialReason.trim()) return
 
-    updateBookingStatus(pendingBookingAction.id, pendingBookingAction.status)
+    updateBookingStatus(
+      pendingBookingAction.id,
+      pendingBookingAction.status,
+      pendingBookingAction.denialReason.trim()
+    )
     setPendingBookingAction(null)
+  }
+
+  function updateDenialReason(reason: string) {
+    setPendingBookingAction((current) =>
+      current ? { ...current, denialReason: reason } : current
+    )
   }
 
   function handleBulletinUpload(event: React.FormEvent<HTMLFormElement>) {
@@ -328,12 +380,16 @@ function removeSpecialMassSchedule(scheduleId: string) {
   )
 }
 
+  if (isCheckingAuth) {
+    return <LoadingPage />
+  }
+
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-24 md:px-8">
       <div className="mx-auto max-w-7xl space-y-8">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <Button asChild variant="ghost" className="mb-3 gap-2 px-0">
+            <Button asChild variant="ghost" className="mb-3 gap-2 px-0 pr-1">
               <Link href="/">
                 <ArrowLeft className="h-4 w-4" /> Back to website
               </Link>
@@ -347,9 +403,6 @@ function removeSpecialMassSchedule(scheduleId: string) {
             </p>
           </div>
 
-          <Button className="gap-2">
-            <Save className="h-4 w-4" /> Save Changes
-          </Button>
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
@@ -367,15 +420,32 @@ function removeSpecialMassSchedule(scheduleId: string) {
 
           <TabsContent value="bookings" className="space-y-4">
             <Card>
-              <CardHeader>
-                <CardTitle>Room booking approvals</CardTitle>
-                <CardDescription>
-                  Approve or deny room requests submitted by church members.
-                </CardDescription>
+              <CardHeader className="gap-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <CardTitle>Room booking approvals</CardTitle>
+                    <CardDescription>
+                      Approve or deny room requests submitted by church members.
+                    </CardDescription>
+                  </div>
+                  <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                    Filter
+                    <select
+                      value={bookingFilter}
+                      onChange={(event) => changeBookingFilter(event.target.value as BookingFilter)}
+                      className="h-10 rounded-md border border-input bg-white px-3 text-sm"
+                    >
+                      <option value="all">All bookings</option>
+                      <option value="pending">Pending only</option>
+                      <option value="approved">Approved only</option>
+                      <option value="denied">Denied only</option>
+                    </select>
+                  </label>
+                </div>
               </CardHeader>
 
               <CardContent className="space-y-4">
-                {bookings.map((booking) => (
+                {visibleBookings.map((booking) => (
                   <Card key={booking.id} className="border-slate-200">
                     <CardContent className="p-4">
                       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -401,30 +471,72 @@ function removeSpecialMassSchedule(scheduleId: string) {
                           </div>
 
                           <p className="text-sm text-slate-700">{booking.purpose}</p>
+
                         </div>
 
                         <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            className="gap-2 bg-emerald-600 hover:bg-emerald-700"
-                            onClick={() => requestBookingStatusChange(booking.id, "approved")}
-                          >
-                            <CheckCircle2 className="h-4 w-4" /> Approve
-                          </Button>
-
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            className="gap-2"
-                            onClick={() => requestBookingStatusChange(booking.id, "denied")}
-                          >
-                            <XCircle className="h-4 w-4" /> Deny
-                          </Button>
+                          {booking.status === "pending" ? (
+                            <>
+                              <Button
+                                size="sm"
+                                className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+                                onClick={() => requestBookingStatusChange(booking.id, "approved")}
+                              >
+                                <CheckCircle2 className="h-4 w-4" /> Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                className="gap-2"
+                                onClick={() => requestBookingStatusChange(booking.id, "denied")}
+                              >
+                                <XCircle className="h-4 w-4" /> Deny
+                              </Button>
+                            </>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setSelectedBooking(booking)}
+                            >
+                              Details
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </CardContent>
                   </Card>
                 ))}
+                {visibleBookings.length === 0 && (
+                  <p className="rounded-md border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
+                    No bookings match this filter.
+                  </p>
+                )}
+                {filteredBookings.length > bookingsPerPage && (
+                  <div className="flex items-center justify-between border-t pt-4">
+                    <p className="text-sm text-slate-500">
+                      Page {bookingPage} of {bookingPageCount}
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={bookingPage === 1}
+                        onClick={() => setBookingPage((page) => Math.max(1, page - 1))}
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={bookingPage === bookingPageCount}
+                        onClick={() => setBookingPage((page) => Math.min(bookingPageCount, page + 1))}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -519,11 +631,13 @@ function removeSpecialMassSchedule(scheduleId: string) {
 
           <TabsContent value="mass" className="space-y-4">
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-start justify-between gap-4">
+                <div>
                   <CardTitle>Edit mass schedule</CardTitle>
                   <CardDescription>
                     Update the schedule shown on the public landing page.
                   </CardDescription>
+                </div>
               </CardHeader>
 
               <CardContent className="space-y-6">
@@ -586,14 +700,12 @@ function removeSpecialMassSchedule(scheduleId: string) {
                 </Card>
               ))}
 
-                <div className="border-t pt-6">
-                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                    <h3 className="mb-4 text-lg font-semibold">Special Mass</h3>
-                    <div>
-                      <Button onClick={addSpecialMassSchedule} className="gap-2">
-                        <Plus className="h-4 w-4" /> Add Special Mass
-                      </Button>
-                    </div>
+                <div className="border-t pt-4">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-4">
+                    <h3 className="text-lg font-semibold">Special Mass</h3>
+                    <Button onClick={addSpecialMassSchedule} className="gap-2 md:shrink-0">
+                      <Plus className="h-4 w-4" /> Add Special Mass
+                    </Button>
                   </div>
 
                   {specialMassSchedules.map((schedule) => (
@@ -708,10 +820,97 @@ function removeSpecialMassSchedule(scheduleId: string) {
                   ))}
                 </div>
               </CardContent>
+              <div className="flex justify-end border-t px-6 py-4">
+                <Button className="gap-2">
+                  <Save className="h-4 w-4" /> Save Changes
+                </Button>
+              </div>
             </Card>
           </TabsContent>
         </Tabs>
       </div>
+
+      <Dialog
+        open={selectedBooking !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedBooking(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedBooking?.room} booking details
+            </DialogTitle>
+            <DialogDescription>
+              Review the request before changing its approval status.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedBooking && (
+            <div className="space-y-4 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="font-medium">Status:</span>
+                <Badge variant="outline" className={statusStyle[selectedBooking.status]}>
+                  {selectedBooking.status}
+                </Badge>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <p className="font-medium text-slate-900">Requester</p>
+                  <p className="text-slate-600">{selectedBooking.requester}</p>
+                </div>
+                <div>
+                  <p className="font-medium text-slate-900">Ministry</p>
+                  <p className="text-slate-600">{selectedBooking.ministry}</p>
+                </div>
+                <div>
+                  <p className="font-medium text-slate-900">Room</p>
+                  <p className="text-slate-600">{selectedBooking.room}</p>
+                </div>
+                <div>
+                  <p className="font-medium text-slate-900">Date and time</p>
+                  <p className="text-slate-600">{selectedBooking.date} • {selectedBooking.time}</p>
+                </div>
+              </div>
+              <div>
+                <p className="font-medium text-slate-900">Purpose</p>
+                <p className="mt-1 text-slate-600">{selectedBooking.purpose}</p>
+              </div>
+              {selectedBooking.status === "denied" && selectedBooking.denialReason && (
+                <div className="rounded-md border border-red-200 bg-red-50 p-3 text-red-800">
+                  <p className="font-semibold">Reason for denial</p>
+                  <p className="mt-1">{selectedBooking.denialReason}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedBooking(null)}>
+              Close
+            </Button>
+            {selectedBooking?.status !== "approved" && (
+              <Button
+                className="gap-2 bg-emerald-600 text-white hover:bg-emerald-700"
+                onClick={() => selectedBooking && requestBookingStatusChange(selectedBooking.id, "approved")}
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Approve
+              </Button>
+            )}
+            {selectedBooking?.status !== "denied" && (
+              <Button
+                variant="destructive"
+                className="gap-2"
+                onClick={() => selectedBooking && requestBookingStatusChange(selectedBooking.id, "denied")}
+              >
+                <XCircle className="h-4 w-4" />
+                Deny
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog
         open={pendingBookingAction !== null}
@@ -731,6 +930,32 @@ function removeSpecialMassSchedule(scheduleId: string) {
                 ? "This will mark the room booking as approved."
                 : "This will mark the room booking as denied."} This action can be changed later.
             </AlertDialogDescription>
+              {pendingBooking && (
+                <div className="mt-4 space-y-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
+                  <p><span className="font-semibold">Requester:</span> {pendingBooking.requester}</p>
+                  <p><span className="font-semibold">Ministry:</span> {pendingBooking.ministry}</p>
+                  <p><span className="font-semibold">Room:</span> {pendingBooking.room}</p>
+                  <p><span className="font-semibold">Date and time:</span> {pendingBooking.date} • {pendingBooking.time}</p>
+                  <p><span className="font-semibold">Purpose:</span> {pendingBooking.purpose}</p>
+                  {pendingBooking.status === "denied" && pendingBooking.denialReason && (
+                    <p className="text-red-700"><span className="font-semibold">Current denial reason:</span> {pendingBooking.denialReason}</p>
+                  )}
+                </div>
+              )}
+            {pendingBookingAction?.status === "denied" && (
+              <div className="mt-4 space-y-2">
+                <Label htmlFor="denial-reason">Reason for denial</Label>
+                <Textarea
+                  id="denial-reason"
+                  className="font-sans normal-case resize-none"
+                  value={pendingBookingAction.denialReason}
+                  onChange={(event) => updateDenialReason(event.target.value)}
+                  placeholder="Explain why this booking is being denied..."
+                  required
+                  rows={4}
+                />
+              </div>
+            )}
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -740,6 +965,10 @@ function removeSpecialMassSchedule(scheduleId: string) {
                 pendingBookingAction?.status === "denied"
                   ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
                   : "bg-emerald-600 text-white hover:bg-emerald-700"
+              }
+              disabled={
+                pendingBookingAction?.status === "denied" &&
+                !pendingBookingAction.denialReason.trim()
               }
             >
               Confirm

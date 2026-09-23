@@ -15,6 +15,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
+import { useRequireAuth } from "@/hooks/use-auth"
+import { LoadingPage } from "@/components/loading-page"
 import Image from "next/image";
 
 // Fixed Room layout with complete borders - Floor 1
@@ -60,6 +62,7 @@ const ROOM_DATA_FLOOR_2 = [
 
 export default function BookingPage() {
   const router = useRouter();
+  const isCheckingAuth = useRequireAuth();
   const [selectedRooms, setSelectedRooms] = useState<string[]>([]);
   const [currentFloor, setCurrentFloor] = useState<'floor1' | 'floor2'>('floor1');
   const [isBookingDialogOpen, setIsBookingDialogOpen] = useState(false);
@@ -165,6 +168,11 @@ export default function BookingPage() {
   const handleNextMonth = () => {
     setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1));
   };
+
+  if (isCheckingAuth) {
+    return <LoadingPage />;
+  }
+
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 p-4 md:p-8">
       {/* <div className="max-w-6xl mx-auto w-full mb-6">
