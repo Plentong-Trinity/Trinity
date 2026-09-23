@@ -52,6 +52,7 @@ func JWTAuth() gin.HandlerFunc {
 
 		// Store the claims in the context for later use
 		c.Set("email", claims.Email)
+		c.Set("user_id", claims.UserID)
 		c.Set("claims", claims)
 
 		c.Next()
