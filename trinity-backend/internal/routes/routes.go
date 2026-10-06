@@ -23,6 +23,11 @@ func Register(r *gin.Engine) {
 		api.POST("/echo", handlers.Echo)
 	}
 
+	protectedAPI := r.Group("/api", middleware.RequestLogger(), middleware.JWTAuth())
+	{
+		protectedAPI.POST("/bookings", handlers.CreateBooking)
+	}
+
 	// Protected routes (require JWT token)
 	protected := r.Group("/api/protected", middleware.RequestLogger(), middleware.JWTAuth())
 	// Example protected endpoint to ensure the group variable is used

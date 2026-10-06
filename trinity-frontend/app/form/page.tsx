@@ -13,7 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Upload, FileText } from "lucide-react";
 import { useRequireAuth } from "@/hooks/use-auth";
 import { LoadingPage } from "@/components/loading-page";
-import { getAuthHeader } from "@/lib/auth";
+import { createBooking } from "@/lib/booking";
+import { getRoleFromToken } from "@/lib/auth";
 
 const ROOM_DATA_FLOOR_1 = [
   { id: 'Park', label: 'Parking Lot', grid: 'col-start-1 col-span-2 row-start-1 row-span-6', style:'my-1' },
@@ -63,12 +64,14 @@ export default function FormPage() {
 
   const [formData, setFormData] = useState({
     applicant: "",
+    contactNumber: "",
     ministry: "",
     purpose: "",
     pax: "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentFloor, setCurrentFloor] = useState<'floor1' | 'floor2'>('floor1');
   const [isDragActive, setIsDragActive] = useState(false);
   const roomData = currentFloor === 'floor1' ? ROOM_DATA_FLOOR_1 : ROOM_DATA_FLOOR_2;
@@ -221,37 +224,51 @@ export default function FormPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedRooms.length || !selectedDate || !selectedTime.start || !selectedTime.end) {
-      setSubmitError("Choose at least one room, a date, and a start and end time before submitting.");
+
+    if (!selectedRooms.length) {
+      alert("Please select at least one room before submitting.");
+      return;
+    }
+
+    if (!selectedDate) {
+      alert("Please select a booking date.");
+      return;
+    }
+
+    if (!formData.applicant.trim() || !formData.contactNumber.trim() || !formData.ministry.trim() || !formData.purpose.trim() || !formData.pax) {
+      alert("Please complete all required booking fields.");
       return;
     }
 
     setIsSubmitting(true);
-    setSubmitError(null);
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
     try {
-      const response = await fetch(`${apiUrl}/api/bookings`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...getAuthHeader() },
-        body: JSON.stringify({
-          requester: formData.applicant,
-          ministry: formData.ministry,
-          rooms: selectedRoomNames,
-          date: selectedDate,
-          end_date: selectedEndDate,
-          start_time: selectedTime.start,
-          end_time: selectedTime.end,
-          purpose: formData.purpose,
-          participants: Number(formData.pax),
-        }),
+      const roomLabel = selectedRoomNames.join(", ") || selectedRooms.join(", ");
+      const startDateTime = selectedTime.start ? new Date(`${selectedDate}T${selectedTime.start}:00`) : new Date(`${selectedDate}T09:00:00`);
+      const endDateTime = selectedTime.end ? new Date(`${selectedEndDate || selectedDate}T${selectedTime.end}:00`) : new Date(`${selectedEndDate || selectedDate}T10:00:00`);
+
+      await createBooking({
+        name: formData.applicant.trim(),
+        phone: formData.contactNumber.trim(),
+        pax: Number(formData.pax),
+        room: selectedRooms,
+        department: formData.ministry.trim(),
+        description: formData.purpose.trim(),
+        start_on: startDateTime.toISOString(),
+        end_on: endDateTime.toISOString(),
       });
-      if (!response.ok) {
-        const result = await response.json().catch(() => null);
-        throw new Error(result?.error || "Could not submit the booking request.");
+
+      const userRole = getRoleFromToken();
+
+      alert("Form submitted successfully!");
+      if (userRole === "admin") {
+        router.push("/admin-dashboard");
+      } else {
+        router.push("/user-dashboard");
       }
-      router.push("/user-dashboard");
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "Could not submit the booking request.");
+      console.error("Booking submit failed:", error);
+      alert(error instanceof Error ? error.message : "Failed to submit booking.");
     } finally {
       setIsSubmitting(false);
     }
@@ -363,7 +380,7 @@ export default function FormPage() {
               <form onSubmit={handleSubmit} className="space-y-6">
                 
                 {/* Applicant Info - Using normal-case to ensure case sensitivity */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
                   <div className="space-y-2">
                     <Label htmlFor="applicant" className="text-sm font-semibold">Applicant Name*</Label>
                     <Input 
@@ -373,6 +390,21 @@ export default function FormPage() {
                       required
                       value={formData.applicant} 
                       onChange={handleChange} 
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="contactNumber" className="text-sm font-semibold">Contact Number*</Label>
+                    <Input
+                      id="contactNumber"
+                      type="tel"
+                      placeholder="e.g. +65 9123 4567"
+                      className="font-sans"
+                      required
+                      value={formData.contactNumber}
+                      onChange={handleChange}
                     />
                   </div>
                   <div className="space-y-2">
@@ -394,7 +426,7 @@ export default function FormPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="purpose" className="text-sm font-semibold">Purpose of Use*</Label>
+                  <Label htmlFor="purpose" className="text-sm font-semibold">Activity Description*</Label>
                   <Textarea 
                     id="purpose" 
                     rows={3} 
@@ -466,12 +498,11 @@ export default function FormPage() {
                   )}
                 </div>
 
-                {submitError && (
-                  <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                    {submitError}
-                  </p>
-                )}
-                <Button type="submit" disabled={isSubmitting} className="w-full bg-slate-900 hover:bg-black text-white h-12 rounded-lg font-bold transition-all shadow-lg active:scale-95">
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full bg-slate-900 hover:bg-black text-white h-12 rounded-lg font-bold transition-all shadow-lg active:scale-95 disabled:cursor-not-allowed disabled:opacity-70"
+                >
                   {isSubmitting ? "Submitting..." : "Submit Application"}
                 </Button>
               </form>

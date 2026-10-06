@@ -41,7 +41,7 @@ export function LoginSection() {
       // Redirect to admin page or dashboard after 1 second
       setTimeout(() => {
         if (tokenPresent && role === "admin") {
-          router.push("/admin")
+          router.push("/admin-dashboard")
         } else {
           router.push("/user-dashboard")
         }
