@@ -58,6 +58,19 @@ func JWTAuth() gin.HandlerFunc {
 	}
 }
 
+func RequireRole(role string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		claimsValue, ok := c.Get("claims")
+		claims, validClaims := claimsValue.(*handlers.Claims)
+		if !ok || !validClaims || claims.Role != role {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
+}
+
 // OptionalJWTAuth is a middleware that validates JWT tokens if present, but doesn't require them
 func OptionalJWTAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {

@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Upload, FileText } from "lucide-react";
 import { useRequireAuth } from "@/hooks/use-auth";
 import { LoadingPage } from "@/components/loading-page";
+import { getAuthHeader } from "@/lib/auth";
 
 const ROOM_DATA_FLOOR_1 = [
   { id: 'Park', label: 'Parking Lot', grid: 'col-start-1 col-span-2 row-start-1 row-span-6', style:'my-1' },
@@ -55,6 +56,8 @@ export default function FormPage() {
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
     // no useRef for file input; input will cover the label to capture clicks
 
@@ -216,11 +219,42 @@ export default function FormPage() {
     setIsPreviewOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Validation logic...
-    alert("Form submitted successfully!");
-    router.push("/user-dashboard");
+    if (!selectedRooms.length || !selectedDate || !selectedTime.start || !selectedTime.end) {
+      setSubmitError("Choose at least one room, a date, and a start and end time before submitting.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmitError(null);
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+    try {
+      const response = await fetch(`${apiUrl}/api/bookings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeader() },
+        body: JSON.stringify({
+          requester: formData.applicant,
+          ministry: formData.ministry,
+          rooms: selectedRoomNames,
+          date: selectedDate,
+          end_date: selectedEndDate,
+          start_time: selectedTime.start,
+          end_time: selectedTime.end,
+          purpose: formData.purpose,
+          participants: Number(formData.pax),
+        }),
+      });
+      if (!response.ok) {
+        const result = await response.json().catch(() => null);
+        throw new Error(result?.error || "Could not submit the booking request.");
+      }
+      router.push("/user-dashboard");
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Could not submit the booking request.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (isCheckingAuth) {
@@ -432,8 +466,13 @@ export default function FormPage() {
                   )}
                 </div>
 
-                <Button type="submit" className="w-full bg-slate-900 hover:bg-black text-white h-12 rounded-lg font-bold transition-all shadow-lg active:scale-95">
-                  Submit Application
+                {submitError && (
+                  <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                    {submitError}
+                  </p>
+                )}
+                <Button type="submit" disabled={isSubmitting} className="w-full bg-slate-900 hover:bg-black text-white h-12 rounded-lg font-bold transition-all shadow-lg active:scale-95">
+                  {isSubmitting ? "Submitting..." : "Submit Application"}
                 </Button>
               </form>
               <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>

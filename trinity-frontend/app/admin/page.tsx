@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/dialog"
 import { useRequireRole } from "@/hooks/use-auth"
 import { LoadingPage } from "@/components/loading-page"
+import { getAuthHeader } from "@/lib/auth"
 
 type BookingStatus = "pending" | "approved" | "denied"
 type BookingFilter = "all" | BookingStatus
@@ -50,10 +51,12 @@ type RoomBooking = {
   ministry: string
   room: string
   date: string
+  end_date?: string
   time: string
   purpose: string
+  participants: number
   status: BookingStatus
-  denialReason?: string
+  denial_reason?: string
 }
 
 type Bulletin = {
@@ -83,39 +86,6 @@ type SpecialMassSchedule = {
   timings: MassTiming[]
   remarks: string
 }
-
-const initialBookings: RoomBooking[] = [
-  {
-    id: "RB-001",
-    requester: "John Tan",
-    ministry: "Youth Ministry",
-    room: "Hall 1",
-    date: "2026-05-24",
-    time: "2:00 PM - 5:00 PM",
-    purpose: "Youth fellowship and games preparation",
-    status: "pending",
-  },
-  {
-    id: "RB-002",
-    requester: "Mary Lee",
-    ministry: "Choir",
-    room: "Room 3",
-    date: "2026-05-25",
-    time: "8:00 PM - 10:00 PM",
-    purpose: "Choir practice",
-    status: "pending",
-  },
-  {
-    id: "RB-003",
-    requester: "Peter Wong",
-    ministry: "Catechism",
-    room: "Room 9",
-    date: "2026-05-26",
-    time: "9:00 AM - 12:00 PM",
-    purpose: "Class session",
-    status: "approved",
-  },
-]
 
 const initialBulletins: Bulletin[] = [
   {
@@ -170,7 +140,9 @@ export default function AdminPage() {
   // Protect this page - only allow admin role
   const isCheckingAuth = useRequireRole("admin")
 
-  const [bookings, setBookings] = React.useState<RoomBooking[]>(initialBookings)
+  const [bookings, setBookings] = React.useState<RoomBooking[]>([])
+  const [bookingsLoading, setBookingsLoading] = React.useState(true)
+  const [bookingError, setBookingError] = React.useState<string | null>(null)
   const [bulletins, setBulletins] = React.useState<Bulletin[]>(initialBulletins)
   const [fixedMassSchedules, setFixedMassSchedules] = React.useState<FixedMassSchedule[]>(
     initialFixedMassSchedules
@@ -208,6 +180,32 @@ export default function AdminPage() {
     setBookingPage((currentPage) => Math.min(currentPage, bookingPageCount))
   }, [bookingPageCount])
 
+  React.useEffect(() => {
+    const controller = new AbortController()
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+
+    async function loadBookings() {
+      try {
+        const response = await fetch(`${apiUrl}/api/bookings`, {
+          headers: getAuthHeader(),
+          signal: controller.signal,
+        })
+        if (!response.ok) throw new Error("Could not load bookings from the database.")
+        setBookings(await response.json() as RoomBooking[])
+        setBookingError(null)
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setBookingError(error instanceof Error ? error.message : "Could not load bookings.")
+        }
+      } finally {
+        if (!controller.signal.aborted) setBookingsLoading(false)
+      }
+    }
+
+    void loadBookings()
+    return () => controller.abort()
+  }, [])
+
   if (isCheckingAuth === "denied") {
     return <LoadingPage accessDenied />
   }
@@ -217,29 +215,35 @@ export default function AdminPage() {
     setBookingPage(1)
   }
 
-  function updateBookingStatus(id: string, status: BookingStatus, denialReason?: string) {
-    setBookings((current) =>
-      current.map((booking) =>
-        booking.id === id ? { ...booking, status, denialReason } : booking
-      )
-    )
-  }
-
   function requestBookingStatusChange(id: string, status: BookingStatus) {
     setSelectedBooking(null)
     setPendingBookingAction({ id, status, denialReason: "" })
   }
 
-  function confirmBookingStatusChange() {
+  async function confirmBookingStatusChange() {
     if (!pendingBookingAction) return
     if (pendingBookingAction.status === "denied" && !pendingBookingAction.denialReason.trim()) return
 
-    updateBookingStatus(
-      pendingBookingAction.id,
-      pendingBookingAction.status,
-      pendingBookingAction.denialReason.trim()
-    )
-    setPendingBookingAction(null)
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+    try {
+      const response = await fetch(`${apiUrl}/api/bookings/${pendingBookingAction.id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...getAuthHeader() },
+        body: JSON.stringify({
+          status: pendingBookingAction.status,
+          denial_reason: pendingBookingAction.denialReason.trim(),
+        }),
+      })
+      if (!response.ok) throw new Error("Could not update this booking.")
+      const updatedBooking = await response.json() as RoomBooking
+      setBookings((current) => current.map((booking) =>
+        booking.id === updatedBooking.id ? updatedBooking : booking
+      ))
+      setBookingError(null)
+      setPendingBookingAction(null)
+    } catch (error) {
+      setBookingError(error instanceof Error ? error.message : "Could not update this booking.")
+    }
   }
 
   function updateDenialReason(reason: string) {
@@ -445,6 +449,14 @@ function removeSpecialMassSchedule(scheduleId: string) {
               </CardHeader>
 
               <CardContent className="space-y-4">
+                {bookingError && (
+                  <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                    {bookingError}
+                  </p>
+                )}
+                {bookingsLoading && (
+                  <p className="py-4 text-center text-sm text-slate-500">Loading bookings...</p>
+                )}
                 {visibleBookings.map((booking) => (
                   <Card key={booking.id} className="border-slate-200">
                     <CardContent className="p-4">
@@ -460,10 +472,11 @@ function removeSpecialMassSchedule(scheduleId: string) {
                           <p className="text-sm text-slate-600">
                             {booking.requester} • {booking.ministry}
                           </p>
+                          <p className="text-sm text-slate-600">{booking.room} · {booking.participants} people</p>
 
                           <div className="flex flex-wrap gap-3 text-sm text-slate-600">
                             <span className="flex items-center gap-1">
-                              <CalendarClock className="h-4 w-4" /> {booking.date}
+                              <CalendarClock className="h-4 w-4" /> {booking.date}{booking.end_date ? ` - ${booking.end_date}` : ""}
                             </span>
                             <span className="flex items-center gap-1">
                               <Clock className="h-4 w-4" /> {booking.time}
@@ -507,7 +520,7 @@ function removeSpecialMassSchedule(scheduleId: string) {
                     </CardContent>
                   </Card>
                 ))}
-                {visibleBookings.length === 0 && (
+                {!bookingsLoading && !bookingError && visibleBookings.length === 0 && (
                   <p className="rounded-md border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
                     No bookings match this filter.
                   </p>
@@ -876,10 +889,10 @@ function removeSpecialMassSchedule(scheduleId: string) {
                 <p className="font-medium text-slate-900">Purpose</p>
                 <p className="mt-1 text-slate-600">{selectedBooking.purpose}</p>
               </div>
-              {selectedBooking.status === "denied" && selectedBooking.denialReason && (
+              {selectedBooking.status === "denied" && selectedBooking.denial_reason && (
                 <div className="rounded-md border border-red-200 bg-red-50 p-3 text-red-800">
                   <p className="font-semibold">Reason for denial</p>
-                  <p className="mt-1">{selectedBooking.denialReason}</p>
+                  <p className="mt-1">{selectedBooking.denial_reason}</p>
                 </div>
               )}
             </div>
@@ -937,8 +950,8 @@ function removeSpecialMassSchedule(scheduleId: string) {
                   <p><span className="font-semibold">Room:</span> {pendingBooking.room}</p>
                   <p><span className="font-semibold">Date and time:</span> {pendingBooking.date} • {pendingBooking.time}</p>
                   <p><span className="font-semibold">Purpose:</span> {pendingBooking.purpose}</p>
-                  {pendingBooking.status === "denied" && pendingBooking.denialReason && (
-                    <p className="text-red-700"><span className="font-semibold">Current denial reason:</span> {pendingBooking.denialReason}</p>
+                  {pendingBooking.status === "denied" && pendingBooking.denial_reason && (
+                    <p className="text-red-700"><span className="font-semibold">Current denial reason:</span> {pendingBooking.denial_reason}</p>
                   )}
                 </div>
               )}

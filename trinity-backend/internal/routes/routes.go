@@ -27,4 +27,16 @@ func Register(r *gin.Engine) {
 	protected := r.Group("/api/protected", middleware.RequestLogger(), middleware.JWTAuth())
 	// Example protected endpoint to ensure the group variable is used
 	protected.GET("/hello", handlers.Hello)
+
+	bookings := r.Group("/api/bookings", middleware.RequestLogger(), middleware.JWTAuth())
+	bookings.POST("", handlers.CreateBooking)
+
+	adminBookings := r.Group(
+		"/api/bookings",
+		middleware.RequestLogger(),
+		middleware.JWTAuth(),
+		middleware.RequireRole("admin"),
+	)
+	adminBookings.GET("", handlers.ListBookings)
+	adminBookings.PATCH("/:id/status", handlers.UpdateBookingStatus)
 }
