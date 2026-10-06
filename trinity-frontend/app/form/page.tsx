@@ -57,6 +57,8 @@ export default function FormPage() {
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
     // no useRef for file input; input will cover the label to capture clicks
 
