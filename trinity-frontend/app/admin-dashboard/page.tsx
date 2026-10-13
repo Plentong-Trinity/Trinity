@@ -186,7 +186,7 @@ export default function AdminPage() {
 
     async function loadBookings() {
       try {
-        const response = await fetch(`${apiUrl}/api/bookings`, {
+        const response = await fetch(`${apiUrl}/api/room-bookings`, {
           headers: getAuthHeader(),
           signal: controller.signal,
         })
@@ -224,9 +224,9 @@ export default function AdminPage() {
     if (!pendingBookingAction) return
     if (pendingBookingAction.status === "denied" && !pendingBookingAction.denialReason.trim()) return
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL
     try {
-      const response = await fetch(`${apiUrl}/api/bookings/${pendingBookingAction.id}/status`, {
+      const response = await fetch(`${apiUrl}/api/room-bookings/${pendingBookingAction.id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...getAuthHeader() },
         body: JSON.stringify({

@@ -10,7 +10,7 @@
 
 @layer base {
   :root {
-    /* --font-sans: "Times New Roman", Times, serif; */
+    --font-sans: "Cinzel", serif;
     --background: 36 70% 97%;
     --foreground: 36 10% 15%;
 

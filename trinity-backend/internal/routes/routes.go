@@ -33,15 +33,15 @@ func Register(r *gin.Engine) {
 	// Example protected endpoint to ensure the group variable is used
 	protected.GET("/hello", handlers.Hello)
 
-	bookings := r.Group("/api/bookings", middleware.RequestLogger(), middleware.JWTAuth())
-	bookings.POST("", handlers.CreateBooking)
+	roomBookings := r.Group("/api/room-bookings", middleware.RequestLogger(), middleware.JWTAuth())
+	roomBookings.POST("", handlers.CreateRoomBooking)
 
-	adminBookings := r.Group(
-		"/api/bookings",
+	adminRoomBookings := r.Group(
+		"/api/room-bookings",
 		middleware.RequestLogger(),
 		middleware.JWTAuth(),
 		middleware.RequireRole("admin"),
 	)
-	adminBookings.GET("", handlers.ListBookings)
-	adminBookings.PATCH("/:id/status", handlers.UpdateBookingStatus)
+	adminRoomBookings.GET("", handlers.ListRoomBookings)
+	adminRoomBookings.PATCH("/:id/status", handlers.UpdateRoomBookingStatus)
 }
