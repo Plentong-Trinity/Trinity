@@ -154,8 +154,11 @@ export function decodeToken(token: string): Record<string, unknown> | null {
     const parts = token.split(".")
     if (parts.length !== 3) return null
 
-    const payload = parts[1]
-    const decodedPayload = atob(payload)
+    const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/")
+    const paddedPayload = payload.padEnd(Math.ceil(payload.length / 4) * 4, "=")
+    const binaryPayload = atob(paddedPayload)
+    const bytes = Uint8Array.from(binaryPayload, (character) => character.charCodeAt(0))
+    const decodedPayload = new TextDecoder().decode(bytes)
     return JSON.parse(decodedPayload)
   } catch {
     return null

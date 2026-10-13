@@ -12,7 +12,7 @@ import (
 	"github.com/johnman136/Trinity/trinity-backend/internal/repository"
 )
 
-func CreateBooking(c *gin.Context) {
+func CreateRoomBooking(c *gin.Context) {
 	var request models.CreateRoomBookingRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid booking data"})
@@ -50,7 +50,7 @@ func CreateBooking(c *gin.Context) {
 	c.JSON(http.StatusCreated, booking)
 }
 
-func ListBookings(c *gin.Context) {
+func ListRoomBookings(c *gin.Context) {
 	if db.DB == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Booking service unavailable"})
 		return
@@ -66,7 +66,7 @@ func ListBookings(c *gin.Context) {
 	c.JSON(http.StatusOK, bookings)
 }
 
-func UpdateBookingStatus(c *gin.Context) {
+func UpdateRoomBookingStatus(c *gin.Context) {
 	var request models.UpdateRoomBookingRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid booking status"})

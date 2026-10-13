@@ -15,13 +15,60 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ModeToggle } from "@/components/for-referencing/mode-toggle"
-import { getRoleFromToken, getNameFromToken, hasToken, isTokenExpired, removeToken } from "@/lib/auth"
+import { getRoleFromToken, getNameFromToken, getUserIdFromToken, hasToken, isTokenExpired, removeToken } from "@/lib/auth"
+import { supabase } from "@/lib/supabase-client"
+
+const avatarImageCache = new Map<string, string>()
+const avatarImageRequests = new Map<string, Promise<string | null>>()
+
+function getAvatarImage(userId: string, bucket: string): Promise<string | null> {
+  const cacheKey = `${bucket}:${userId}`
+  const cachedImage = avatarImageCache.get(cacheKey)
+  if (cachedImage) return Promise.resolve(cachedImage)
+
+  const pendingRequest = avatarImageRequests.get(cacheKey)
+  if (pendingRequest) return pendingRequest
+
+  const request = (async () => {
+    const storage = supabase.storage.from(bucket)
+    const paths = [
+      `${userId}.jpeg`,
+      `${userId}.jpg`,
+      `${userId}.png`,
+      `${userId}.webp`,
+      `${userId}/avatar.jpeg`,
+      `${userId}/avatar.jpg`,
+      `${userId}/avatar.png`,
+      `${userId}/avatar.webp`,
+    ]
+
+    for (const path of paths) {
+      const { data, error } = await storage.download(path)
+      if (error || !data) continue
+
+      const imageUrl = URL.createObjectURL(data)
+      avatarImageCache.set(cacheKey, imageUrl)
+      return imageUrl
+    }
+
+    return null
+  })().finally(() => avatarImageRequests.delete(cacheKey))
+
+  avatarImageRequests.set(cacheKey, request)
+  return request
+}
+
+function clearAvatarImageCache() {
+  avatarImageCache.forEach((imageUrl) => URL.revokeObjectURL(imageUrl))
+  avatarImageCache.clear()
+}
 
 export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
   const [userRole, setUserRole] = useState<string | null>(null)
   const [userName, setUserName] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const pathname = usePathname()
   const isHome = pathname === "/"
@@ -52,10 +99,11 @@ export function Navbar() {
 
     const syncAuthState = () => {
       const tokenPresent = hasToken() && !isTokenExpired()
+      if (!tokenPresent) clearAvatarImageCache()
       setIsAuthenticated(tokenPresent)
       setUserRole(tokenPresent ? getRoleFromToken() : null)
       setUserName(tokenPresent ? getNameFromToken() : null)
-
+      setUserId(tokenPresent ? getUserIdFromToken() : null)
     }
 
     syncAuthState()
@@ -105,7 +153,7 @@ export function Navbar() {
         </Link>
 
         <div className={`hidden md:flex items-center gap-6 ${isHome ? (isScrolled ? "text-black" : "text-white") : "text-black"}`}>
-          <NavLinks scrollToSection={scrollToSection} userRole={userRole} userName={userName} isAuthenticated={isAuthenticated} onLogout={handleLogout} navTextClass={isHome && !isScrolled ? "text-white" : "text-foreground"} />
+          <NavLinks scrollToSection={scrollToSection} userRole={userRole} userName={userName} userId={userId} isAuthenticated={isAuthenticated} onLogout={handleLogout} navTextClass={isHome && !isScrolled ? "text-white" : "text-foreground"} />
           {/* <ModeToggle /> */}
         </div>
 
@@ -120,7 +168,7 @@ export function Navbar() {
       {isMenuOpen && (
         <div className="md:hidden bg-background/95 backdrop-blur-md">
           <div className="container mx-auto px-4 py-4 flex flex-col gap-4">
-            <NavLinks scrollToSection={scrollToSection} mobile onClick={() => setIsMenuOpen(false)} userRole={userRole} userName={userName} isAuthenticated={isAuthenticated} onLogout={() => { setIsMenuOpen(false); handleLogout(); }} />
+            <NavLinks scrollToSection={scrollToSection} mobile onClick={() => setIsMenuOpen(false)} userRole={userRole} userName={userName} userId={userId} isAuthenticated={isAuthenticated} onLogout={() => { setIsMenuOpen(false); handleLogout(); }} />
           </div>
         </div>
       )}
@@ -128,7 +176,7 @@ export function Navbar() {
   )
 }
 
-function NavLinks({ mobile = false, scrollToSection, onClick, userRole, userName, isAuthenticated, onLogout, navTextClass = "text-foreground" }: { mobile?: boolean; scrollToSection: (e: React.MouseEvent<HTMLAnchorElement>, sectionId: string) => void; onClick?: () => void; userRole?: string | null; userName?: string | null; isAuthenticated?: boolean; onLogout?: () => void; navTextClass?: string }) {
+function NavLinks({ mobile = false, scrollToSection, onClick, userRole, userName, userId, isAuthenticated, onLogout, navTextClass = "text-foreground" }: { mobile?: boolean; scrollToSection: (e: React.MouseEvent<HTMLAnchorElement>, sectionId: string) => void; onClick?: () => void; userRole?: string | null; userName?: string | null; userId?: string | null; isAuthenticated?: boolean; onLogout?: () => void; navTextClass?: string }) {
   const linkClass = mobile ? "block py-2 text-foreground hover:text-primary transition-colors" : `px-2 py-1 ${navTextClass} hover:text-primary transition-colors`
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
@@ -167,12 +215,12 @@ function NavLinks({ mobile = false, scrollToSection, onClick, userRole, userName
 
           <DropdownMenuContent className="w-40" align="start" onMouseEnter={openDropdown} onMouseLeave={closeDropdown}>
             <DropdownMenuItem asChild onMouseEnter={openDropdown} onMouseLeave={closeDropdown}>
-              <Link href="/overview" className={linkClass}>Overview</Link>
+              <Link href="/overview" className={`${linkClass} !text-black hover:!text-primary`}>Overview</Link>
             </DropdownMenuItem>
 
             {isAuthenticated && (userRole === "user" || userRole === "admin") && (
               <DropdownMenuItem asChild onMouseEnter={openDropdown} onMouseLeave={closeDropdown}>
-                <Link href="/room-booking" className={linkClass} onClick={onClick}>Booking</Link>
+                <Link href="/room-booking" className={`${linkClass} !text-black hover:!text-primary`} onClick={onClick}>Booking</Link>
               </DropdownMenuItem>
             )}
             
@@ -193,10 +241,10 @@ function NavLinks({ mobile = false, scrollToSection, onClick, userRole, userName
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="p-1 text-foreground hover:text-primary transition-colors"
+              className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full text-foreground transition-colors hover:text-primary"
               aria-label="Open user menu"
             >
-              <UserCircle className="h-8 w-8" />
+              <AvatarImage userId={userId ?? null} />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="">
@@ -225,5 +273,50 @@ function NavLinks({ mobile = false, scrollToSection, onClick, userRole, userName
         </Link>
       ) : null}
     </>
+  )
+}
+
+function AvatarImage({ userId }: { userId: string | null }) {
+  const [imageUrl, setImageUrl] = useState<string | null>(() =>
+    userId ? avatarImageCache.get(`${process.env.NEXT_PUBLIC_SUPABASE_AVATAR_BUCKET || "Profile Pic"}:${userId}`) ?? null : null
+  )
+  const bucket = process.env.NEXT_PUBLIC_SUPABASE_AVATAR_BUCKET || "Profile Pic"
+
+  useEffect(() => {
+    let isActive = true
+    if (!userId) {
+      setImageUrl(null)
+      return
+    }
+    const cachedImage = avatarImageCache.get(`${bucket}:${userId}`)
+    if (cachedImage) {
+      setImageUrl(cachedImage)
+      return () => {
+        isActive = false
+      }
+    }
+
+    setImageUrl(null)
+    getAvatarImage(userId, bucket).then((url) => {
+      if (isActive) setImageUrl(url)
+    })
+
+    return () => {
+      isActive = false
+    }
+  }, [userId, bucket])
+
+  if (!imageUrl) return <UserCircle className="h-8 w-8" />
+
+  return (
+    <Image
+      src={imageUrl}
+      alt="Profile picture"
+      width={40}
+      height={40}
+      unoptimized
+      className="h-9 w-9 rounded-full object-cover border-2 border-black"
+      onError={() => setImageUrl(null)}
+    />
   )
 }
