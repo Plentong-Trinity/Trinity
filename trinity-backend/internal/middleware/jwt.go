@@ -52,8 +52,22 @@ func JWTAuth() gin.HandlerFunc {
 
 		// Store the claims in the context for later use
 		c.Set("email", claims.Email)
+		c.Set("user_id", claims.UserID)
 		c.Set("claims", claims)
 
+		c.Next()
+	}
+}
+
+func RequireRole(role string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		claimsValue, ok := c.Get("claims")
+		claims, validClaims := claimsValue.(*handlers.Claims)
+		if !ok || !validClaims || claims.Role != role {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
+			c.Abort()
+			return
+		}
 		c.Next()
 	}
 }

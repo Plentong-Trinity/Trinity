@@ -12,11 +12,38 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { useRequireRole } from "@/hooks/use-auth"
+import { LoadingPage } from "@/components/loading-page"
+import { getAuthHeader } from "@/lib/auth"
 
 type BookingStatus = "pending" | "approved" | "denied"
+type BookingFilter = "all" | BookingStatus
+
+type PendingBookingAction = {
+  id: string
+  status: BookingStatus
+  denialReason: string
+}
 
 type RoomBooking = {
   id: string
@@ -24,9 +51,12 @@ type RoomBooking = {
   ministry: string
   room: string
   date: string
+  end_date?: string
   time: string
   purpose: string
+  participants: number
   status: BookingStatus
+  denial_reason?: string
 }
 
 type Bulletin = {
@@ -67,39 +97,6 @@ type SpecialMassSchedule = {
   timings: SpecialMassTiming[]
   remarks: string
 }
-
-const initialBookings: RoomBooking[] = [
-  {
-    id: "RB-001",
-    requester: "John Tan",
-    ministry: "Youth Ministry",
-    room: "Hall 1",
-    date: "2026-05-24",
-    time: "2:00 PM - 5:00 PM",
-    purpose: "Youth fellowship and games preparation",
-    status: "pending",
-  },
-  {
-    id: "RB-002",
-    requester: "Mary Lee",
-    ministry: "Choir",
-    room: "Room 3",
-    date: "2026-05-25",
-    time: "8:00 PM - 10:00 PM",
-    purpose: "Choir practice",
-    status: "pending",
-  },
-  {
-    id: "RB-003",
-    requester: "Peter Wong",
-    ministry: "Catechism",
-    room: "Room 9",
-    date: "2026-05-26",
-    time: "9:00 AM - 12:00 PM",
-    purpose: "Class session",
-    status: "approved",
-  },
-]
 
 const initialBulletins: Bulletin[] = [
   {
@@ -162,13 +159,19 @@ const statusStyle: Record<BookingStatus, string> = {
 
 export default function AdminPage() {
   // Protect this page - only allow admin role
-  useRequireRole("admin")
+  const isCheckingAuth = useRequireRole("admin")
 
-  const [bookings, setBookings] = React.useState<RoomBooking[]>(initialBookings)
+  const [bookings, setBookings] = React.useState<RoomBooking[]>([])
+  const [bookingsLoading, setBookingsLoading] = React.useState(true)
+  const [bookingError, setBookingError] = React.useState<string | null>(null)
   const [bulletins, setBulletins] = React.useState<Bulletin[]>(initialBulletins)
   const [fixedMassSchedules, setFixedMassSchedules] = React.useState<FixedMassSchedule[]>(
     initialFixedMassSchedules
   )
+  const [pendingBookingAction, setPendingBookingAction] = React.useState<PendingBookingAction | null>(null)
+  const [selectedBooking, setSelectedBooking] = React.useState<RoomBooking | null>(null)
+  const [bookingFilter, setBookingFilter] = React.useState<BookingFilter>("all")
+  const [bookingPage, setBookingPage] = React.useState(1)
   const [specialMassSchedules, setSpecialMassSchedules] = React.useState<SpecialMassSchedule[]>(
     initialSpecialMassSchedules
   )
@@ -181,12 +184,92 @@ export default function AdminPage() {
 
   const pendingCount = bookings.filter((booking) => booking.status === "pending").length
   const approvedCount = bookings.filter((booking) => booking.status === "approved").length
+  const filteredBookings = bookingFilter === "all"
+    ? bookings
+    : bookings.filter((booking) => booking.status === bookingFilter)
+  const bookingsPerPage = 10
+  const bookingPageCount = Math.max(1, Math.ceil(filteredBookings.length / bookingsPerPage))
+  const visibleBookings = filteredBookings.slice(
+    (bookingPage - 1) * bookingsPerPage,
+    bookingPage * bookingsPerPage
+  )
+  const pendingBooking = pendingBookingAction
+    ? bookings.find((booking) => booking.id === pendingBookingAction.id)
+    : null
 
-  function updateBookingStatus(id: string, status: BookingStatus) {
-    setBookings((current) =>
-      current.map((booking) =>
-        booking.id === id ? { ...booking, status } : booking
-      )
+  React.useEffect(() => {
+    setBookingPage((currentPage) => Math.min(currentPage, bookingPageCount))
+  }, [bookingPageCount])
+
+  React.useEffect(() => {
+    const controller = new AbortController()
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+
+    async function loadBookings() {
+      try {
+        const response = await fetch(`${apiUrl}/api/room-bookings`, {
+          headers: getAuthHeader(),
+          signal: controller.signal,
+        })
+        if (!response.ok) throw new Error("Could not load bookings from the database.")
+        setBookings(await response.json() as RoomBooking[])
+        setBookingError(null)
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setBookingError(error instanceof Error ? error.message : "Could not load bookings.")
+        }
+      } finally {
+        if (!controller.signal.aborted) setBookingsLoading(false)
+      }
+    }
+
+    void loadBookings()
+    return () => controller.abort()
+  }, [])
+
+  if (isCheckingAuth === "denied") {
+    return <LoadingPage accessDenied />
+  }
+
+  function changeBookingFilter(filter: BookingFilter) {
+    setBookingFilter(filter)
+    setBookingPage(1)
+  }
+
+  function requestBookingStatusChange(id: string, status: BookingStatus) {
+    setSelectedBooking(null)
+    setPendingBookingAction({ id, status, denialReason: "" })
+  }
+
+  async function confirmBookingStatusChange() {
+    if (!pendingBookingAction) return
+    if (pendingBookingAction.status === "denied" && !pendingBookingAction.denialReason.trim()) return
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL
+    try {
+      const response = await fetch(`${apiUrl}/api/room-bookings/${pendingBookingAction.id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...getAuthHeader() },
+        body: JSON.stringify({
+          status: pendingBookingAction.status,
+          denial_reason: pendingBookingAction.denialReason.trim(),
+        }),
+      })
+      if (!response.ok) throw new Error("Could not update this booking.")
+      const updatedBooking = await response.json() as RoomBooking
+      setBookings((current) => current.map((booking) =>
+        booking.id === updatedBooking.id ? updatedBooking : booking
+      ))
+      setBookingError(null)
+      setPendingBookingAction(null)
+    } catch (error) {
+      setBookingError(error instanceof Error ? error.message : "Could not update this booking.")
+    }
+  }
+
+  function updateDenialReason(reason: string) {
+    setPendingBookingAction((current) =>
+      current ? { ...current, denialReason: reason } : current
     )
   }
 
@@ -407,7 +490,15 @@ function removeSpecialMassSchedule(scheduleId: string) {
               </CardHeader>
 
               <CardContent className="space-y-4">
-                {bookings.map((booking) => (
+                {bookingError && (
+                  <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                    {bookingError}
+                  </p>
+                )}
+                {bookingsLoading && (
+                  <p className="py-4 text-center text-sm text-slate-500">Loading bookings...</p>
+                )}
+                {visibleBookings.map((booking) => (
                   <Card key={booking.id} className="border-slate-200">
                     <CardContent className="p-4">
                       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -422,10 +513,11 @@ function removeSpecialMassSchedule(scheduleId: string) {
                           <p className="text-sm text-slate-600">
                             {booking.requester} • {booking.ministry}
                           </p>
+                          <p className="text-sm text-slate-600">{booking.room} · {booking.participants} people</p>
 
                           <div className="flex flex-wrap gap-3 text-sm text-slate-600">
                             <span className="flex items-center gap-1">
-                              <CalendarClock className="h-4 w-4" /> {booking.date}
+                              <CalendarClock className="h-4 w-4" /> {booking.date}{booking.end_date ? ` - ${booking.end_date}` : ""}
                             </span>
                             <span className="flex items-center gap-1">
                               <Clock className="h-4 w-4" /> {booking.time}
@@ -439,7 +531,7 @@ function removeSpecialMassSchedule(scheduleId: string) {
                           <Button
                             size="sm"
                             className="gap-2 bg-emerald-600 hover:bg-emerald-700"
-                            onClick={() => updateBookingStatus(booking.id, "approved")}
+                            onClick={() => requestBookingStatusChange(booking.id, "approved")}
                           >
                             <CheckCircle2 className="h-4 w-4" /> Approve
                           </Button>
@@ -448,7 +540,7 @@ function removeSpecialMassSchedule(scheduleId: string) {
                             size="sm"
                             variant="destructive"
                             className="gap-2"
-                            onClick={() => updateBookingStatus(booking.id, "denied")}
+                            onClick={() => requestBookingStatusChange(booking.id, "approved")}
                           >
                             <XCircle className="h-4 w-4" /> Deny
                           </Button>
@@ -457,6 +549,36 @@ function removeSpecialMassSchedule(scheduleId: string) {
                     </CardContent>
                   </Card>
                 ))}
+                {!bookingsLoading && !bookingError && visibleBookings.length === 0 && (
+                  <p className="rounded-md border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
+                    No bookings match this filter.
+                  </p>
+                )}
+                {filteredBookings.length > bookingsPerPage && (
+                  <div className="flex items-center justify-between border-t pt-4">
+                    <p className="text-sm text-slate-500">
+                      Page {bookingPage} of {bookingPageCount}
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={bookingPage === 1}
+                        onClick={() => setBookingPage((page) => Math.max(1, page - 1))}
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={bookingPage === bookingPageCount}
+                        onClick={() => setBookingPage((page) => Math.min(bookingPageCount, page + 1))}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -926,6 +1048,153 @@ function removeSpecialMassSchedule(scheduleId: string) {
           </TabsContent>
         </Tabs>
       </div>
+
+      <Dialog
+        open={selectedBooking !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedBooking(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedBooking?.room} booking details
+            </DialogTitle>
+            <DialogDescription>
+              Review the request before changing its approval status.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedBooking && (
+            <div className="space-y-4 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="font-medium">Status:</span>
+                <Badge variant="outline" className={statusStyle[selectedBooking.status]}>
+                  {selectedBooking.status}
+                </Badge>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <p className="font-medium text-slate-900">Requester</p>
+                  <p className="text-slate-600">{selectedBooking.requester}</p>
+                </div>
+                <div>
+                  <p className="font-medium text-slate-900">Ministry</p>
+                  <p className="text-slate-600">{selectedBooking.ministry}</p>
+                </div>
+                <div>
+                  <p className="font-medium text-slate-900">Room</p>
+                  <p className="text-slate-600">{selectedBooking.room}</p>
+                </div>
+                <div>
+                  <p className="font-medium text-slate-900">Date and time</p>
+                  <p className="text-slate-600">{selectedBooking.date} • {selectedBooking.time}</p>
+                </div>
+              </div>
+              <div>
+                <p className="font-medium text-slate-900">Purpose</p>
+                <p className="mt-1 text-slate-600">{selectedBooking.purpose}</p>
+              </div>
+              {selectedBooking.status === "denied" && selectedBooking.denial_reason && (
+                <div className="rounded-md border border-red-200 bg-red-50 p-3 text-red-800">
+                  <p className="font-semibold">Reason for denial</p>
+                  <p className="mt-1">{selectedBooking.denial_reason}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedBooking(null)}>
+              Close
+            </Button>
+            {selectedBooking?.status !== "approved" && (
+              <Button
+                className="gap-2 bg-emerald-600 text-white hover:bg-emerald-700"
+                onClick={() => selectedBooking && requestBookingStatusChange(selectedBooking.id, "approved")}
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Approve
+              </Button>
+            )}
+            {selectedBooking?.status !== "denied" && (
+              <Button
+                variant="destructive"
+                className="gap-2"
+                onClick={() => selectedBooking && requestBookingStatusChange(selectedBooking.id, "denied")}
+              >
+                <XCircle className="h-4 w-4" />
+                Deny
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={pendingBookingAction !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingBookingAction(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingBookingAction?.status === "approved"
+                ? "Approve this booking?"
+                : "Deny this booking?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingBookingAction?.status === "approved"
+                ? "This will mark the room booking as approved."
+                : "This will mark the room booking as denied."} This action can be changed later.
+            </AlertDialogDescription>
+              {pendingBooking && (
+                <div className="mt-4 space-y-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
+                  <p><span className="font-semibold">Requester:</span> {pendingBooking.requester}</p>
+                  <p><span className="font-semibold">Ministry:</span> {pendingBooking.ministry}</p>
+                  <p><span className="font-semibold">Room:</span> {pendingBooking.room}</p>
+                  <p><span className="font-semibold">Date and time:</span> {pendingBooking.date} • {pendingBooking.time}</p>
+                  <p><span className="font-semibold">Purpose:</span> {pendingBooking.purpose}</p>
+                  {pendingBooking.status === "denied" && pendingBooking.denial_reason && (
+                    <p className="text-red-700"><span className="font-semibold">Current denial reason:</span> {pendingBooking.denial_reason}</p>
+                  )}
+                </div>
+              )}
+            {pendingBookingAction?.status === "denied" && (
+              <div className="mt-4 space-y-2">
+                <Label htmlFor="denial-reason">Reason for denial</Label>
+                <Textarea
+                  id="denial-reason"
+                  className="font-sans normal-case resize-none"
+                  value={pendingBookingAction.denialReason}
+                  onChange={(event) => updateDenialReason(event.target.value)}
+                  placeholder="Explain why this booking is being denied..."
+                  required
+                  rows={4}
+                />
+              </div>
+            )}
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmBookingStatusChange}
+              className={
+                pendingBookingAction?.status === "denied"
+                  ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  : "bg-emerald-600 text-white hover:bg-emerald-700"
+              }
+              disabled={
+                pendingBookingAction?.status === "denied" &&
+                !pendingBookingAction.denialReason.trim()
+              }
+            >
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   )
 }
