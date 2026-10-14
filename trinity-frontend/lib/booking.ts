@@ -28,6 +28,20 @@ export interface BookingResponse {
   }
 }
 
+export interface UserBookingRecord {
+  id: string
+  requester: string
+  ministry: string
+  room: string
+  date: string
+  end_date?: string
+  time: string
+  purpose: string
+  participants: number
+  status: string
+  denial_reason?: string
+}
+
 export type BookingPayloadInput = Omit<BookingPayload, "created_at"> & {
   start_on: string | Date
   end_on: string | Date
@@ -83,4 +97,45 @@ export async function createBooking(payload: BookingPayloadInput): Promise<Booki
   }
 
   return data as BookingResponse
+}
+
+export async function getMyBookings(): Promise<UserBookingRecord[]> {
+  const token = getToken()
+
+  if (!token) {
+    throw new Error("Authentication required. Please log in again.")
+  }
+
+  const response = await fetch(`${API_URL}/api/bookings`, {
+    headers: {
+      "Authorization": `Bearer ${token}`,
+    },
+  })
+  const data = (await response.json().catch(() => ({}))) as UserBookingRecord[] | { error?: string }
+
+  if (!response.ok) {
+    throw new Error("error" in data ? data.error || "Failed to load bookings" : "Failed to load bookings")
+  }
+
+  return Array.isArray(data) ? data : []
+}
+
+export async function deleteMyBooking(bookingId: string): Promise<void> {
+  const token = getToken()
+
+  if (!token) {
+    throw new Error("Authentication required. Please log in again.")
+  }
+
+  const response = await fetch(`${API_URL}/api/bookings/${encodeURIComponent(bookingId)}`, {
+    method: "DELETE",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+    },
+  })
+  const data = (await response.json().catch(() => ({}))) as { error?: string }
+
+  if (!response.ok) {
+    throw new Error(data.error || "Failed to delete booking")
+  }
 }

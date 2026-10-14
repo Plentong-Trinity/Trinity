@@ -10,7 +10,6 @@ import {
   Clock3,
   DoorOpen,
   History,
-  MapPin,
   Plus,
   Search,
   Users,
@@ -19,6 +18,16 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import {
   Dialog,
   DialogContent,
@@ -29,76 +38,54 @@ import {
 } from "@/components/ui/dialog"
 import { useRequireRole } from "@/hooks/use-auth"
 import { decodeToken, getToken } from "@/lib/auth"
+import { deleteMyBooking, getMyBookings, type UserBookingRecord } from "@/lib/booking"
 import { cn } from "@/lib/utils"
 import { LoadingPage } from "@/components/loading-page"
 
-type BookingStatus = "approved" | "pending" | "completed" | "cancelled"
+type BookingStatus = "approved" | "pending" | "completed" | "cancelled" | "denied"
 
 type Booking = {
   id: string
   room: string
-  location: string
+  ministry: string
   date: string
   time: string
   purpose: string
   participants: number
   status: BookingStatus
-  activity: string
+  denialReason?: string
 }
 
-// Replace this sample list with GET /api/bookings when the booking API is ready.
-const initialBookings: Booking[] = [
-  {
-    id: "BK-0261",
-    room: "St. Joseph Hall",
-    location: "Ground floor",
-    date: "2026-09-27",
-    time: "2:00 PM – 4:00 PM",
-    purpose: "Youth Ministry Meeting",
-    participants: 24,
-    status: "approved",
-    activity: "Approved on 21 Sep, 10:32 AM",
-  },
-  {
-    id: "BK-0268",
-    room: "Room 9",
-    location: "First floor",
-    date: "2026-10-03",
-    time: "8:00 PM – 9:30 PM",
-    purpose: "Choir Practice",
-    participants: 16,
-    status: "pending",
-    activity: "Submitted on 22 Sep, 8:14 PM",
-  },
-  {
-    id: "BK-0243",
-    room: "Hall 2",
-    location: "Ground floor",
-    date: "2026-09-13",
-    time: "10:00 AM – 12:00 PM",
-    purpose: "Catechism Class",
-    participants: 30,
-    status: "completed",
-    activity: "Completed on 13 Sep, 12:00 PM",
-  },
-  {
-    id: "BK-0239",
-    room: "Room 6",
-    location: "First floor",
-    date: "2026-09-06",
-    time: "3:30 PM – 5:30 PM",
-    purpose: "Committee Discussion",
-    participants: 10,
-    status: "cancelled",
-    activity: "Cancelled on 4 Sep, 6:40 PM",
-  },
-]
+const roomLabelsById: Record<string, string> = {
+  Park: "Parking Lot",
+  CN: "Canteen",
+  M: "St. Mary",
+  n: "St. Mary",
+  H1: "Hall 1",
+  H2: "Hall 2",
+  "1": "Room 1",
+  "2": "Room 2",
+  "3": "Room 3",
+  T: "Toilet",
+  SCT: "Sanctuary",
+  "4": "Room 4",
+  "5": "Room 5",
+  "6": "Room 6",
+  "7": "Room 7",
+  "8": "Room 8",
+  "9": "Room 9",
+  "10": "Room 10",
+  "11": "Room 11",
+  "12": "Room 12",
+  PH: "Parish House",
+}
 
 const statusStyles: Record<BookingStatus, string> = {
   approved: "border-emerald-200 bg-emerald-50 text-emerald-700",
   pending: "border-amber-200 bg-amber-50 text-amber-700",
   completed: "border-slate-200 bg-slate-100 text-slate-600",
   cancelled: "border-rose-200 bg-rose-50 text-rose-700",
+  denied: "border-rose-200 bg-rose-50 text-rose-700",
 }
 
 const dateFormatter = new Intl.DateTimeFormat("en-MY", {
@@ -120,6 +107,33 @@ function getDateParts(date: string) {
   }
 }
 
+function mapBooking(record: UserBookingRecord): Booking {
+  const status = record.status.toLowerCase()
+  const normalizedStatus: BookingStatus =
+    status === "rejected" || status === "declined"
+      ? "denied"
+      : status === "canceled"
+        ? "cancelled"
+        : status === "approved" || status === "completed" || status === "cancelled" || status === "denied"
+          ? status
+          : "pending"
+
+  return {
+    id: record.id,
+    room: record.room
+      .split(",")
+      .map((roomId) => roomLabelsById[roomId.trim()] || roomId.trim())
+      .join(", "),
+    ministry: record.ministry,
+    date: record.date,
+    time: record.time,
+    purpose: record.purpose,
+    participants: record.participants,
+    status: normalizedStatus,
+    denialReason: record.denial_reason,
+  }
+}
+
 function StatusBadge({ status }: { status: BookingStatus }) {
   return (
     <Badge variant="outline" className={cn("capitalize shadow-none", statusStyles[status])}>
@@ -131,23 +145,48 @@ function StatusBadge({ status }: { status: BookingStatus }) {
 export default function UserDashboardPage() {
   const isCheckingAuth = useRequireRole("user")
 
-  const [bookings, setBookings] = React.useState(initialBookings)
+  const [bookings, setBookings] = React.useState<Booking[]>([])
+  const [isLoadingBookings, setIsLoadingBookings] = React.useState(true)
+  const [bookingError, setBookingError] = React.useState("")
   const [selectedBooking, setSelectedBooking] = React.useState<Booking | null>(null)
+  const [isDeletingBooking, setIsDeletingBooking] = React.useState(false)
+  const [isCancelConfirmationOpen, setIsCancelConfirmationOpen] = React.useState(false)
+  const [deleteError, setDeleteError] = React.useState("")
   const [displayName, setDisplayName] = React.useState("")
 
   React.useEffect(() => {
+    if (isCheckingAuth) return
+
     const token = getToken()
     const claims = token ? decodeToken(token) : null
     const name = typeof claims?.name === "string" ? claims.name : ""
     const email = typeof claims?.email === "string" ? claims.email : ""
     setDisplayName(name || email.split("@")[0] || "")
-  }, [])
+
+    let isCurrent = true
+    getMyBookings()
+      .then((records) => {
+        if (isCurrent) setBookings(records.map(mapBooking))
+      })
+      .catch((error: unknown) => {
+        if (isCurrent) {
+          setBookingError(error instanceof Error ? error.message : "Failed to load bookings")
+        }
+      })
+      .finally(() => {
+        if (isCurrent) setIsLoadingBookings(false)
+      })
+
+    return () => {
+      isCurrent = false
+    }
+  }, [isCheckingAuth])
 
   const upcomingBookings = bookings.filter(
     (booking) => booking.status === "approved" || booking.status === "pending"
   )
   const recentBookings = bookings.filter(
-    (booking) => booking.status === "completed" || booking.status === "cancelled"
+    (booking) => booking.status === "completed" || booking.status === "cancelled" || booking.status === "denied"
   )
   const pendingCount = bookings.filter((booking) => booking.status === "pending").length
   const currentMonth = new Date().getMonth()
@@ -157,19 +196,20 @@ export default function UserDashboardPage() {
     return bookingDate.getMonth() === currentMonth && bookingDate.getFullYear() === currentYear
   }).length
 
-  const cancelBooking = () => {
-    if (!selectedBooking) return
+  const cancelBooking = async () => {
+    if (!selectedBooking || isDeletingBooking) return
 
-    const cancelledBooking: Booking = {
-      ...selectedBooking,
-      status: "cancelled",
-      activity: "Cancelled just now",
+    setIsDeletingBooking(true)
+    setDeleteError("")
+    try {
+      await deleteMyBooking(selectedBooking.id)
+      setBookings((current) => current.filter((booking) => booking.id !== selectedBooking.id))
+      setSelectedBooking(null)
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : "Failed to delete booking")
+    } finally {
+      setIsDeletingBooking(false)
     }
-
-    setBookings((current) =>
-      current.map((booking) => (booking.id === cancelledBooking.id ? cancelledBooking : booking))
-    )
-    setSelectedBooking(cancelledBooking)
   }
 
   if (isCheckingAuth === "denied") {
@@ -196,11 +236,6 @@ export default function UserDashboardPage() {
                 Your bookings, approvals, and room availability—all in one place.
               </p>
             </div>
-            <Button asChild size="lg" className="w-full rounded-full shadow-sm sm:w-fit">
-              <Link href="/room-booking">
-                <Plus /> Book a room
-              </Link>
-            </Button>
           </div>
 
           <div className="mt-8 grid gap-3 sm:grid-cols-3">
@@ -246,7 +281,15 @@ export default function UserDashboardPage() {
 
           <Card className="overflow-hidden border-[#e8ddd4] bg-white shadow-sm">
             <CardContent className="p-0">
-              {upcomingBookings.length === 0 ? (
+              {isLoadingBookings ? (
+                <div className="px-6 py-10 text-center text-sm text-slate-500" aria-live="polite">
+                  Loading your bookings...
+                </div>
+              ) : bookingError ? (
+                <div className="px-6 py-10 text-center text-sm text-rose-700" role="alert">
+                  {bookingError}
+                </div>
+              ) : upcomingBookings.length === 0 ? (
                 <div className="px-6 py-14 text-center">
                   <DoorOpen className="mx-auto h-8 w-8 text-slate-400" />
                   <h3 className="mt-3 font-semibold text-slate-900">No upcoming bookings</h3>
@@ -278,9 +321,7 @@ export default function UserDashboardPage() {
                           <span className="inline-flex items-center gap-1.5">
                             <Clock3 className="h-4 w-4" /> {booking.time}
                           </span>
-                          <span className="inline-flex items-center gap-1.5">
-                            <MapPin className="h-4 w-4" /> {booking.location}
-                          </span>
+                          <span>{booking.ministry}</span>
                           <span className="inline-flex items-center gap-1.5">
                             <Users className="h-4 w-4" /> {booking.participants}
                           </span>
@@ -302,7 +343,7 @@ export default function UserDashboardPage() {
           </Card>
         </section>
 
-        <aside aria-labelledby="quick-actions-heading">
+        <aside className="lg:mt-[68px]" aria-labelledby="quick-actions-heading">
           <Card className="overflow-hidden border-0 bg-[#7f1d1d] text-white shadow-lg shadow-red-950/10">
             <CardHeader className="pb-4">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-red-100">Shortcuts</p>
@@ -326,7 +367,7 @@ export default function UserDashboardPage() {
               </Link>
 
               <Link
-                href="/room-booking"
+                href="/overview"
                 className="group flex items-center gap-3 rounded-xl border border-white/15 bg-white/10 p-4 transition-colors hover:bg-white/15"
               >
                 <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10">
@@ -339,7 +380,7 @@ export default function UserDashboardPage() {
                 <ArrowRight className="h-4 w-4 text-red-100 transition-transform group-hover:translate-x-1" />
               </Link>
 
-              <Link
+              {/* <Link
                 href="#upcoming-bookings"
                 className="group flex items-center gap-3 rounded-xl border border-white/15 bg-white/10 p-4 transition-colors hover:bg-white/15"
               >
@@ -351,7 +392,7 @@ export default function UserDashboardPage() {
                   <span className="block text-xs text-red-100">Review booking status</span>
                 </span>
                 <ArrowRight className="h-4 w-4 text-red-100 transition-transform group-hover:translate-x-1" />
-              </Link>
+              </Link> */}
             </CardContent>
           </Card>
 
@@ -376,10 +417,13 @@ export default function UserDashboardPage() {
               <div className="hidden grid-cols-[1.4fr_1fr_1.2fr_auto] gap-4 border-b border-[#eee5dd] bg-[#fbf8f5] px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 md:grid">
                 <span>Booking</span>
                 <span>Date</span>
-                <span>Latest activity</span>
+                <span>Ministry</span>
                 <span>Status</span>
               </div>
 
+              {!isLoadingBookings && !bookingError && recentBookings.length === 0 && (
+                <div className="px-6 py-8 text-center text-sm text-slate-500">No recent booking activity.</div>
+              )}
               {recentBookings.map((booking, index) => (
                 <button
                   key={booking.id}
@@ -392,13 +436,13 @@ export default function UserDashboardPage() {
                 >
                   <span>
                     <span className="block font-semibold text-slate-950">{booking.room}</span>
-                    <span className="mt-0.5 block text-xs text-slate-500">{booking.purpose} · {booking.id}</span>
+                    <span className="mt-0.5 block text-xs text-slate-500">{booking.purpose}</span>
                   </span>
                   <span className="inline-flex items-center gap-2 text-sm text-slate-600">
                     <CalendarDays className="h-4 w-4 md:hidden" /> {formatBookingDate(booking.date)}
                   </span>
                   <span className="inline-flex items-center gap-2 text-sm text-slate-500">
-                    <History className="h-4 w-4 md:hidden" /> {booking.activity}
+                    <History className="h-4 w-4 md:hidden" /> {booking.ministry}
                   </span>
                   <span className="flex items-center justify-between gap-3 md:justify-end">
                     <StatusBadge status={booking.status} />
@@ -416,10 +460,7 @@ export default function UserDashboardPage() {
           {selectedBooking && (
             <>
               <DialogHeader>
-                <div className="mb-2 flex items-center justify-between gap-3 pr-6">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                    {selectedBooking.id}
-                  </span>
+                <div className="mb-2 flex items-center justify-end gap-3 pr-6">
                   <StatusBadge status={selectedBooking.status} />
                 </div>
                 <DialogTitle className="text-2xl">{selectedBooking.room}</DialogTitle>
@@ -436,8 +477,8 @@ export default function UserDashboardPage() {
                   <p className="mt-1 font-semibold text-slate-900">{selectedBooking.time}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Location</p>
-                  <p className="mt-1 font-semibold text-slate-900">{selectedBooking.location}</p>
+                  <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Ministry</p>
+                  <p className="mt-1 font-semibold text-slate-900">{selectedBooking.ministry}</p>
                 </div>
                 <div>
                   <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Participants</p>
@@ -445,15 +486,23 @@ export default function UserDashboardPage() {
                 </div>
               </div>
 
-              <p className="text-sm text-slate-500">{selectedBooking.activity}</p>
+              {selectedBooking.denialReason && (
+                <p className="text-sm text-rose-700">Reason: {selectedBooking.denialReason}</p>
+              )}
+              {deleteError && <p className="text-sm text-rose-700" role="alert">{deleteError}</p>}
 
               <DialogFooter className="gap-2 sm:justify-between">
                 {(selectedBooking.status === "approved" || selectedBooking.status === "pending") && (
-                  <Button variant="outline" className="text-destructive" onClick={cancelBooking}>
-                    Cancel booking
+                  <Button
+                    variant="outline"
+                    className="text-destructive"
+                    onClick={() => setIsCancelConfirmationOpen(true)}
+                    disabled={isDeletingBooking}
+                  >
+                    {isDeletingBooking ? "Deleting..." : "Cancel booking"}
                   </Button>
                 )}
-                <Button onClick={() => setSelectedBooking(null)} className="sm:ml-auto">
+                <Button onClick={() => setSelectedBooking(null)} className="sm:ml-auto" disabled={isDeletingBooking}>
                   Done
                 </Button>
               </DialogFooter>
@@ -461,6 +510,27 @@ export default function UserDashboardPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={isCancelConfirmationOpen} onOpenChange={setIsCancelConfirmationOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to cancel your booking?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Confirming will permanently delete this booking record. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingBooking}>Keep booking</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={cancelBooking}
+              disabled={isDeletingBooking}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeletingBooking ? "Deleting..." : "Yes, cancel booking"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   )
 }

@@ -62,21 +62,42 @@ func (r *BookingRepository) Create(ctx context.Context, userID string, request m
 	return &booking, nil
 }
 
+const bookingListSelect = `
+	SELECT id, name, department, COALESCE(room, ARRAY[]::varchar[]),
+		COALESCE(TO_CHAR(start_on AT TIME ZONE 'Asia/Kuala_Lumpur', 'YYYY-MM-DD'), ''),
+		COALESCE(TO_CHAR(end_on AT TIME ZONE 'Asia/Kuala_Lumpur', 'YYYY-MM-DD'), ''),
+		CASE WHEN start_on IS NULL THEN '' ELSE
+			TO_CHAR(start_on AT TIME ZONE 'Asia/Kuala_Lumpur', 'HH12:MI AM') ||
+			CASE WHEN end_on IS NULL THEN '' ELSE ' - ' ||
+				TO_CHAR(end_on AT TIME ZONE 'Asia/Kuala_Lumpur', 'HH12:MI AM') END
+		END,
+		description, pax, status::text, COALESCE(deny_reason, '')
+	FROM "Booking"
+`
+
 func (r *BookingRepository) List(ctx context.Context) ([]models.RoomBooking, error) {
-	query := `
-		SELECT id, name, department, COALESCE(room, ARRAY[]::varchar[]),
-			COALESCE(TO_CHAR(start_on AT TIME ZONE 'Asia/Kuala_Lumpur', 'YYYY-MM-DD'), ''),
-			COALESCE(TO_CHAR(end_on AT TIME ZONE 'Asia/Kuala_Lumpur', 'YYYY-MM-DD'), ''),
-			CASE WHEN start_on IS NULL THEN '' ELSE
-				TO_CHAR(start_on AT TIME ZONE 'Asia/Kuala_Lumpur', 'HH12:MI AM') ||
-				CASE WHEN end_on IS NULL THEN '' ELSE ' - ' ||
-					TO_CHAR(end_on AT TIME ZONE 'Asia/Kuala_Lumpur', 'HH12:MI AM') END
-			END,
-			description, pax, status::text, COALESCE(deny_reason, '')
-		FROM "Booking"
-		ORDER BY created_at DESC
-	`
-	rows, err := r.db.QueryContext(ctx, query)
+	return r.list(ctx, bookingListSelect+` ORDER BY created_at DESC`)
+}
+
+func (r *BookingRepository) ListByUserID(ctx context.Context, userID string) ([]models.RoomBooking, error) {
+	return r.list(ctx, bookingListSelect+` WHERE user_id = $1 ORDER BY created_at DESC`, userID)
+}
+
+func (r *BookingRepository) DeleteByUserID(ctx context.Context, bookingID, userID string) (bool, error) {
+	result, err := r.db.ExecContext(ctx, `DELETE FROM "Booking" WHERE id = $1 AND user_id = $2`, bookingID, userID)
+	if err != nil {
+		return false, fmt.Errorf("failed to delete booking: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("failed to confirm booking deletion: %w", err)
+	}
+	return rowsAffected > 0, nil
+}
+
+func (r *BookingRepository) list(ctx context.Context, query string, args ...any) ([]models.RoomBooking, error) {
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list bookings: %w", err)
 	}
