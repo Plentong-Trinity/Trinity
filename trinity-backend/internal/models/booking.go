@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 type RoomBooking struct {
 	ID           string `json:"id"`
 	Requester    string `json:"requester"`
@@ -12,6 +14,16 @@ type RoomBooking struct {
 	Participants int    `json:"participants"`
 	Status       string `json:"status"`
 	DenialReason string `json:"denial_reason,omitempty"`
+}
+
+type CalendarEvent struct {
+	ID          string    `json:"id"`
+	Title       string    `json:"title"`
+	StartTime   time.Time `json:"start_time"`
+	EndTime     time.Time `json:"end_time"`
+	Status      string    `json:"status"`
+	Location    string    `json:"location"`
+	Description string    `json:"description"`
 }
 
 type CreateRoomBookingRequest struct {

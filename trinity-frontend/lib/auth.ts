@@ -214,9 +214,9 @@ export function isTokenExpired(): boolean {
   if (!token) return true
 
   const decoded = decodeToken(token)
-  if (!decoded?.exp) return true
+  const expiration = decoded?.exp
+  if (typeof expiration !== "number" || !Number.isFinite(expiration)) return true
 
-  const expirationTime = (decoded.exp as number) * 1000 // Convert to milliseconds
-  return Date.now() > expirationTime
+  return Date.now() >= expiration * 1000
 }
 

@@ -2,23 +2,45 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { login, hasToken, logout, isTokenExpired, getRoleFromToken } from "@/lib/auth"
+import { login, hasToken, logout, removeToken, isTokenExpired, getRoleFromToken } from "@/lib/auth"
 import { LogIn, LogOut } from "lucide-react"
 
 export function LoginSection() {
   const router = useRouter()
-  const [isLoggedIn, setIsLoggedIn] = useState(hasToken())
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
   const [userRole, setUserRole] = useState<string | null>(null)
+
+  useEffect(() => {
+    const syncAuthState = () => {
+      const tokenExists = hasToken()
+      const authenticated = tokenExists && !isTokenExpired()
+
+      if (tokenExists && !authenticated) removeToken()
+      setIsLoggedIn(authenticated)
+      setUserRole(authenticated ? getRoleFromToken() : null)
+    }
+
+    syncAuthState()
+    window.addEventListener("storage", syncAuthState)
+    window.addEventListener("auth-state-changed", syncAuthState)
+    const expiryCheck = window.setInterval(syncAuthState, 30_000)
+
+    return () => {
+      window.removeEventListener("storage", syncAuthState)
+      window.removeEventListener("auth-state-changed", syncAuthState)
+      window.clearInterval(expiryCheck)
+    }
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -28,6 +50,12 @@ export function LoginSection() {
     try {
       await login(email, password)
       const tokenPresent = hasToken() && !isTokenExpired()
+      if (!tokenPresent) {
+        removeToken()
+        setIsLoggedIn(false)
+        setMessage({ type: "error", text: "Login returned an invalid or expired session. Please try again." })
+        return
+      }
       const role = tokenPresent ? getRoleFromToken() : null
       setUserRole(role)
       setMessage({
