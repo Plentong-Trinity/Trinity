@@ -26,6 +26,8 @@ func Register(r *gin.Engine) {
 	protectedAPI := r.Group("/api", middleware.RequestLogger(), middleware.JWTAuth())
 	{
 		protectedAPI.POST("/bookings", handlers.CreateBooking)
+		protectedAPI.GET("/bookings", handlers.ListUserBookings)
+		protectedAPI.DELETE("/bookings/:id", handlers.DeleteUserBooking)
 	}
 
 	// Protected routes (require JWT token)

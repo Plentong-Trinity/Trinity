@@ -50,6 +50,52 @@ func CreateRoomBooking(c *gin.Context) {
 	c.JSON(http.StatusCreated, booking)
 }
 
+func ListUserBookings(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if strings.TrimSpace(userID) == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+		return
+	}
+	if db.DB == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Booking service unavailable"})
+		return
+	}
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+
+	bookings, err := repository.NewBookingRepository().ListByUserID(ctx, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load bookings"})
+		return
+	}
+	c.JSON(http.StatusOK, bookings)
+}
+
+func DeleteUserBooking(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if strings.TrimSpace(userID) == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+		return
+	}
+	if db.DB == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Booking service unavailable"})
+		return
+	}
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+
+	deleted, err := repository.NewBookingRepository().DeleteByUserID(ctx, c.Param("id"), userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete booking"})
+		return
+	}
+	if !deleted {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Booking not found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Booking deleted successfully"})
+}
+
 func ListRoomBookings(c *gin.Context) {
 	if db.DB == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Booking service unavailable"})

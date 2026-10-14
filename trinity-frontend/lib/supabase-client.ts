@@ -69,11 +69,10 @@ export async function logout() {
 
 export async function authenticatedFetch(endpoint: string, options: RequestInit = {}) {
   const token = typeof window !== "undefined" ? localStorage.getItem("supabase_access_token") : null
-  const headers: HeadersInit = {
-    "Content-Type": "application/json",
-    ...(options.headers || {}),
-  }
-  if (token) headers["Authorization"] = `Bearer ${token}`
+  const headers = new Headers(options.headers)
+  headers.set("Content-Type", "application/json")
+
+  if (token) headers.set("Authorization", `Bearer ${token}`)
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
   return fetch(`${API_URL}${endpoint}`, { ...options, headers })
