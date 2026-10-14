@@ -34,6 +34,7 @@ func Register(r *gin.Engine) {
 	protected.GET("/hello", handlers.Hello)
 
 	roomBookings := r.Group("/api/room-bookings", middleware.RequestLogger(), middleware.JWTAuth())
+	roomBookings.GET("/calendar", handlers.ListCalendarEvents)
 	roomBookings.POST("", handlers.CreateRoomBooking)
 
 	adminRoomBookings := r.Group(

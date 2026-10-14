@@ -6,13 +6,17 @@ import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Clock } from "lucide-react";
+import { getToken, isTokenExpired, removeToken } from "@/lib/auth";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 type RoomEvent = {
-  id: number;
+  id: string;
   title: string;
   start: string;
   end: string;
-  group: 1 | 2 | 3 | 4;
+  status: "pending" | "approved";
+  rooms?: string[];
 };
 
 type RoomSchedule = {
@@ -29,6 +33,16 @@ type PositionedEvent = RoomEvent & {
 type SchedulePayload = {
   date?: string; // "YYYY-MM-DD"
   rooms: RoomSchedule[];
+};
+
+type CalendarEventResponse = {
+  id: string;
+  title: string;
+  start_time: string;
+  end_time: string;
+  status: string;
+  location: string;
+  description: string;
 };
 
 type CalendarHeaderProps = {
@@ -55,66 +69,35 @@ const HOURS = Array.from(
   (_, i) => i + START_HOUR
 );
 
-const GROUP_COLORS: Record<1 | 2 | 3 | 4, { bg: string; text: string }> = {
-  1: { bg: "#D38845", text: "#edf6f6" },
-  2: { bg: "#4FAFB1", text: "#edf6f6" },
-  3: { bg: "#438BCD", text: "#edf6f6" },
-  4: { bg: "#8469B5", text: "#edf6f6" },
+const STATUS_COLORS: Record<RoomEvent["status"], { bg: string; text: string }> = {
+  pending: { bg: "#f59e0b", text: "#422006" },
+  approved: { bg: "#10b981", text: "#ecfdf5" },
 };
 
-function getGroupColors(group: 1 | 2 | 3 | 4) {
-  return GROUP_COLORS[group] ?? { bg: "#CBD5E1", text: "#1F2937" };
+const ROOM_NAMES: Record<string, string> = {
+  Park: "Parking Lot",
+  CN: "Canteen",
+  M: "St. Mary",
+  H1: "Hall 1",
+  H2: "Hall 2",
+  "1": "Room 1",
+  "2": "Room 2",
+  "3": "Room 3",
+  "4": "Room 4",
+  "5": "Room 5",
+  "6": "Room 6",
+  "7": "Room 7",
+  "8": "Room 8",
+  "9": "Room 9",
+  "10": "Room 10",
+  "11": "Room 11",
+  "12": "Room 12",
+  SCT: "Sanctuary",
+};
+
+function getRoomName(roomId: string) {
+  return ROOM_NAMES[roomId] ?? roomId;
 }
-
-const FALLBACK_SCHEDULE: SchedulePayload = {
-  date: "2026-04-21",
-  rooms: [
-    {
-      id: "room-101",
-      name: "Room 101",
-      events: [
-        { id: 1, title: "Dentist appt.", start: "09:00", end: "10:00", group: 1 },
-        { id: 2, title: "Focus time", start: "10:00", end: "11:00", group: 2 },
-        { id: 3, title: "Client calls", start: "11:00", end: "12:30", group: 3 },
-        { id: 4, title: "Weekly Team Mtg.", start: "16:00", end: "17:00", group: 4 },
-      ],
-    },
-    {
-      id: "room-102",
-      name: "Room 102",
-      events: [
-        { id: 7, title: "Project Planning", start: "11:00", end: "12:30", group: 1 },
-        { id: 8, title: "Stakeholder Update", start: "13:00", end: "14:00", group: 2 },
-        { id: 9, title: "Blocker Sync", start: "14:00", end: "15:00", group: 4 },
-        { id: 10, title: "Design Review", start: "15:00", end: "16:30", group: 3 },
-      ],
-    },
-    {
-      id: "room-a",
-      name: "Conference Room A",
-      events: [
-        { id: 11, title: "Marketing Standup", start: "09:00", end: "10:00", group: 2 },
-        { id: 12, title: "Campaign Review", start: "10:00", end: "11:00", group: 2 },
-        { id: 13, title: "Budget Review", start: "11:00", end: "12:00", group: 3 },
-        { id: 14, title: "Sales Training", start: "13:00", end: "14:30", group: 4 },
-        { id: 15, title: "Client Presentation", start: "15:00", end: "16:00", group: 2 },
-        { id: 16, title: "Q&A Session", start: "16:00", end: "17:00", group: 1 },
-      ],
-    },
-    {
-      id: "room-b",
-      name: "Conference Room B",
-      events: [
-        { id: 11, title: "Marketing Standup", start: "09:00", end: "10:00", group: 4 },
-        { id: 12, title: "Campaign Review", start: "10:00", end: "11:00", group: 3 },
-        { id: 13, title: "Budget Review", start: "11:00", end: "12:00", group: 2 },
-        { id: 14, title: "Sales Training", start: "13:00", end: "14:30", group: 1 },
-        { id: 15, title: "Client Presentation", start: "15:00", end: "16:00", group: 4 },
-        { id: 16, title: "Q&A Session", start: "16:00", end: "17:00", group: 3 },
-      ],
-    },
-  ],
-};
 
 function timeToMinutes(time: string): number {
   const [hour, minute] = time.split(":").map(Number);
@@ -155,6 +138,8 @@ function isTimeAvailableInAllRooms(
  * where ALL rooms are concurrently open.
  */
 function getAvailableTimeSlots(schedule: SchedulePayload): Array<{ start: number; end: number }> {
+  if (schedule.rooms.length === 0) return [];
+
   const slots: Array<{ start: number; end: number }> = [];
   const startLimit = START_HOUR * 60;
   const endLimit = END_HOUR * 60;
@@ -291,7 +276,7 @@ function CalendarHeader({ date }: CalendarHeaderProps) {
       </span>
       <div className="flex items-center gap-2">
         <span className="rounded-md border border-[#d8cbb8] bg-[#f8f3eb] px-2 py-1 text-xs text-[#5f5f5f]">
-          W{getWeekNumber(date)}
+          Week {getWeekNumber(date)}
         </span>
         <span className="text-sm text-[#4b4b4b]">{formatFullDate(date)}</span>
       </div>
@@ -306,11 +291,12 @@ function EventBlock({ event }: EventBlockProps) {
   const height = Math.max(minutesToY(endMinutes) - top, 24);
   const widthFraction = 1 / event.totalCols;
 
-  const { bg, text } = getGroupColors(event.group);
+  const { bg, text } = STATUS_COLORS[event.status];
 
   return (
     <div
       className="absolute z-[5] overflow-hidden rounded-md px-3 py-2 shadow-sm"
+      title={`${event.title}${event.rooms?.length ? ` — ${event.rooms.join(", ")}` : ""} (${event.status})`}
       style={{
         top: top + 2,
         height: height - 4,
@@ -325,6 +311,11 @@ function EventBlock({ event }: EventBlockProps) {
       {height > 38 && (
         <p className="mt-1 text-[12px] opacity-85" style={{ color: text }}>
           {formatEventTime(event.start)} – {formatEventTime(event.end)}
+        </p>
+      )}
+      {event.rooms && event.rooms.length > 1 && height > 54 && (
+        <p className="truncate text-[11px] opacity-90" style={{ color: text }}>
+          {event.rooms.join(", ")}
         </p>
       )}
     </div>
@@ -427,23 +418,184 @@ export default function Page() {
   const searchParams = useSearchParams();
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
-  const [schedule, setSchedule] = useState<SchedulePayload>(FALLBACK_SCHEDULE);
+  const [schedule, setSchedule] = useState<SchedulePayload>({ rooms: [] });
+  const [scheduleLoading, setScheduleLoading] = useState(true);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [isTimeDialogOpen, setIsTimeDialogOpen] = useState(false);
   const [selectedStartTime, setSelectedStartTime] = useState("");
   const [selectedEndTime, setSelectedEndTime] = useState("");
   const [timeError, setTimeError] = useState<string | null>(null);
   const [selectedRooms, setSelectedRooms] = useState<string[]>([]);
+  const [roomsReady, setRoomsReady] = useState(false);
+
+  const dateParam = searchParams.get("date");
+  const date = useMemo(() => {
+    if (!dateParam) return new Date();
+    const [year, month, day] = dateParam.split("-").map(Number);
+    return new Date(year, month - 1, day);
+  }, [dateParam]);
 
   useEffect(() => {
-    const raw = sessionStorage.getItem("calendarSchedule");
-    if (!raw) return;
-    try {
-      const parsed: SchedulePayload = JSON.parse(raw);
-      if (parsed?.rooms?.length) setSchedule(parsed);
-    } catch (error) {
-      console.error("Failed to parse calendarSchedule:", error);
+    const roomsParam = searchParams.get("rooms");
+    if (roomsParam) {
+      const parsedRooms = roomsParam
+        .split(",")
+        .map((room) => room.trim())
+        .filter(Boolean);
+
+      if (parsedRooms.length) {
+        setSelectedRooms(parsedRooms);
+        sessionStorage.setItem("selectedRooms", JSON.stringify(parsedRooms));
+      }
+    } else {
+      const storedRooms = sessionStorage.getItem("selectedRooms");
+      if (storedRooms) {
+        try {
+          const parsed: unknown = JSON.parse(storedRooms);
+          if (Array.isArray(parsed) && parsed.every((room) => typeof room === "string")) {
+            setSelectedRooms(parsed);
+          }
+        } catch (error) {
+          console.error("Failed to parse selectedRooms:", error);
+        }
+      }
     }
-  }, []);
+    setRoomsReady(true);
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!roomsReady) return;
+
+    let isCurrent = true;
+    const loadSchedule = async () => {
+      const token = getToken();
+      if (!token || isTokenExpired()) {
+        removeToken();
+        router.replace("/login");
+        return;
+      }
+
+      setScheduleLoading(true);
+      setScheduleError(null);
+      setSchedule({
+        date: dateParam ?? undefined,
+        rooms: selectedRooms.map((roomId) => ({
+          id: roomId,
+          name: getRoomName(roomId),
+          events: [],
+        })),
+      });
+
+      try {
+        const params = new URLSearchParams();
+        if (selectedRooms.length > 0) params.set("rooms", selectedRooms.join(","));
+        const query = params.toString();
+        const response = await fetch(
+          `${API_URL}/api/room-bookings/calendar${query ? `?${query}` : ""}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        if (response.status === 401) {
+          removeToken();
+          router.replace("/login");
+          return;
+        }
+        if (!response.ok) throw new Error("Failed to load day view bookings");
+
+        const records = (await response.json()) as CalendarEventResponse[];
+        const dayStart = new Date(date);
+        dayStart.setHours(0, 0, 0, 0);
+        const dayEnd = new Date(dayStart);
+        dayEnd.setDate(dayEnd.getDate() + 1);
+        const businessStart = new Date(dayStart);
+        businessStart.setHours(START_HOUR, 0, 0, 0);
+        const businessEnd = new Date(dayStart);
+        businessEnd.setHours(END_HOUR, 0, 0, 0);
+
+        const loadedRoomIds = selectedRooms.length > 0
+          ? selectedRooms
+          : Array.from(new Set(records.flatMap((record) =>
+              record.location.split(",").map((room) => room.trim()).filter(Boolean)
+            )));
+        const loadedRooms: RoomSchedule[] = loadedRoomIds.map((roomId) => ({
+          id: roomId,
+          name: getRoomName(roomId),
+          events: [],
+        }));
+        const roomById = new Map(loadedRooms.map((room) => [room.id, room]));
+
+        records.forEach((record) => {
+          const start = new Date(record.start_time);
+          const end = new Date(record.end_time);
+          const status = record.status.toLowerCase();
+          if (
+            Number.isNaN(start.getTime()) ||
+            Number.isNaN(end.getTime()) ||
+            end <= dayStart ||
+            start >= dayEnd ||
+            (status !== "pending" && status !== "approved")
+          ) {
+            return;
+          }
+
+          const visibleStart = new Date(Math.max(start.getTime(), businessStart.getTime()));
+          const visibleEnd = new Date(Math.min(end.getTime(), businessEnd.getTime()));
+          if (visibleEnd <= visibleStart) return;
+
+          const event: RoomEvent = {
+            id: record.id,
+            title: record.title || record.description || "Room booking",
+            start: minutesToTime(visibleStart.getHours() * 60 + visibleStart.getMinutes()),
+            end: minutesToTime(visibleEnd.getHours() * 60 + visibleEnd.getMinutes()),
+            status,
+          };
+
+          record.location.split(",").map((room) => room.trim()).forEach((roomId) => {
+            const room = roomById.get(roomId);
+            room?.events.push({
+              ...event,
+              rooms: room ? [room.name] : [],
+            });
+          });
+        });
+
+        const displayRooms = selectedRooms.length > 3
+          ? [{
+              id: "selected-rooms",
+              name: `Selected Rooms (${selectedRooms.length})`,
+              events: Array.from(
+                loadedRooms
+                  .flatMap((room) => room.events)
+                  .reduce((eventsById, event) => {
+                    const existing = eventsById.get(event.id);
+                    if (existing) {
+                      existing.rooms = Array.from(new Set([...(existing.rooms ?? []), ...(event.rooms ?? [])]));
+                    } else {
+                      eventsById.set(event.id, { ...event, rooms: [...(event.rooms ?? [])] });
+                    }
+                    return eventsById;
+                  }, new Map<string, RoomEvent>())
+                  .values()
+              ),
+            }]
+          : loadedRooms;
+
+        if (isCurrent) setSchedule({ date: dateParam ?? undefined, rooms: displayRooms });
+      } catch (error) {
+        if (isCurrent) {
+          setScheduleError(error instanceof Error ? error.message : "Failed to load day view bookings");
+        }
+      } finally {
+        if (isCurrent) setScheduleLoading(false);
+      }
+    };
+
+    void loadSchedule();
+    return () => {
+      isCurrent = false;
+    };
+  }, [date, dateParam, refreshKey, roomsReady, router, selectedRooms]);
 
   // Calculate completely isolated unblocked gaps across all rooms
   const freeBlocks = useMemo(() => getAvailableTimeSlots(schedule), [schedule]);
@@ -476,6 +628,14 @@ export default function Page() {
     return options;
   }, [selectedStartTime, freeBlocks]);
 
+  const handleStartTimeChange = (startTime: string) => {
+    setSelectedStartTime(startTime);
+    const startMinutes = timeToMinutes(startTime);
+    const activeBlock = freeBlocks.find((block) => startMinutes >= block.start && startMinutes < block.end);
+    setSelectedEndTime(activeBlock ? minutesToTime(Math.min(startMinutes + 30, activeBlock.end)) : "");
+    setTimeError(null);
+  };
+
   // Handle setting intelligent default values when dialog pops up
   useEffect(() => {
     if (isTimeDialogOpen) {
@@ -492,45 +652,11 @@ export default function Page() {
     }
   }, [isTimeDialogOpen, selectableStartOptions, freeBlocks]);
 
-  const date = useMemo(() => {
-    const dateParam = searchParams.get("date");
-    const sourceDate = dateParam || schedule.date;
-    if (!sourceDate) return new Date();
-    const [year, month, day] = sourceDate.split("-").map(Number);
-    return new Date(year, month - 1, day);
-  }, [searchParams, schedule.date]);
-
   useEffect(() => {
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = Math.max(minutesToY(9 * 60) - 20, 0);
     }
   }, []);
-
-  useEffect(() => {
-    const roomsParam = searchParams.get("rooms");
-
-    if (roomsParam) {
-      const parsedRooms = roomsParam
-        .split(",")
-        .map((room) => room.trim())
-        .filter(Boolean);
-
-      if (parsedRooms.length) {
-        setSelectedRooms(parsedRooms);
-        sessionStorage.setItem("selectedRooms", JSON.stringify(parsedRooms));
-      }
-    } else {
-      const storedRooms = sessionStorage.getItem("selectedRooms");
-      if (storedRooms) {
-        try {
-          const parsed = JSON.parse(storedRooms);
-          if (Array.isArray(parsed)) setSelectedRooms(parsed);
-        } catch (error) {
-          console.error("Failed to parse selectedRooms:", error);
-        }
-      }
-    }
-  }, [searchParams]);
 
   const handleConfirmTime = () => {
     if (!selectedStartTime || !selectedEndTime) {
@@ -578,20 +704,44 @@ export default function Page() {
     setIsTimeDialogOpen(true);
   };
 
+  const canBook = !scheduleLoading && !scheduleError && schedule.rooms.length > 0;
   const gridHeight = HOUR_HEIGHT * (END_HOUR - START_HOUR);
 
   return (
     <div className="flex items-start justify-center px-6 py-8">
       <div className="w-full max-w-[1500px]">
-        <div className="mb-4 flex justify-end">
-          <Button onClick={() => setIsTimeDialogOpen(true)} className="gap-2" variant="outline">
-            <Clock className="h-4 w-4" />
-            Select Time
-          </Button>
-        </div>
+        {scheduleError && (
+          <div role="alert" className="mb-4 flex items-center justify-between rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <span>{scheduleError}</span>
+            <Button variant="outline" size="sm" onClick={() => setRefreshKey((key) => key + 1)}>
+              Retry
+            </Button>
+          </div>
+        )}
+          {!scheduleLoading && !scheduleError && schedule.rooms.length === 0 && (
+          <p className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            No rooms were selected. Return to room booking and select at least one room.
+          </p>
+        )}
 
         <div className="overflow-hidden rounded-2xl border border-[#d8cbb8] bg-[#f8f3eb] shadow-sm">
           <CalendarHeader date={date} />
+          <div className="flex items-center justify-between gap-4 border-b border-[#e4d9c9] px-6 py-3">
+            <div className="flex items-center gap-4 text-xs font-medium">
+              <span className="flex items-center gap-1.5 text-amber-800">
+                <span className="size-3 rounded-sm bg-amber-500" />
+                Pending
+              </span>
+              <span className="flex items-center gap-1.5 text-emerald-800">
+                <span className="size-3 rounded-sm bg-emerald-500" />
+                Approved
+              </span>
+            </div>
+            <Button onClick={() => setIsTimeDialogOpen(true)} className="gap-2" variant="outline" disabled={!canBook}>
+              <Clock className="h-4 w-4" />
+              {scheduleLoading ? "Loading bookings..." : "Select Time"}
+            </Button>
+          </div>
           <div ref={scrollContainerRef} className="overflow-auto" style={{ maxHeight: "820px" }}>
             <div className="flex min-w-[980px]">
               <div className="sticky left-0 z-10 w-[70px] flex-shrink-0 border-r border-[#e4d9c9] bg-[#f8f3eb]">
@@ -612,7 +762,7 @@ export default function Page() {
 
               <div className="flex min-w-0 flex-1">
                 {schedule.rooms.map((room) => (
-                  <RoomColumn key={room.id} room={room} isToday={date.toDateString() === new Date().toDateString()} onEmptySpaceClick={handleEmptySpaceClick} schedule={schedule} />
+                  <RoomColumn key={room.id} room={room} isToday={date.toDateString() === new Date().toDateString()} onEmptySpaceClick={canBook ? handleEmptySpaceClick : undefined} schedule={schedule} />
                 ))}
               </div>
             </div>
@@ -642,13 +792,21 @@ export default function Page() {
                 </div>
               ) : (
                 <>
-                  {/* Start Time Text */}
+                  {/* Start Time Dropdown */}
                   <div className="space-y-1">
-                    <span className="text-sm font-medium text-gray-500 block">Start Time</span>
-                    <div className="text-sm font-semibold text-gray-900 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-gray-400" />
-                      {selectedStartTime ? formatEventTime(selectedStartTime) : ""}
-                    </div>
+                    <label htmlFor="start-time" className="text-sm font-medium text-gray-500 block">Start Time</label>
+                    <select
+                      id="start-time"
+                      value={selectedStartTime}
+                      onChange={(e) => handleStartTimeChange(e.target.value)}
+                      className="w-full rounded border border-gray-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none"
+                    >
+                      {selectableStartOptions.map((time) => (
+                        <option key={`start-${time}`} value={time}>
+                          {formatEventTime(time)}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   {/* End Time Dropdown */}

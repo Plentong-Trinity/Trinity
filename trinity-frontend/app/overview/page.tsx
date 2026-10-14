@@ -12,43 +12,49 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
+import { getToken, isTokenExpired, removeToken } from "@/lib/auth"
+import { useRouter } from "next/navigation"
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
 
 interface CalendarEvent {
   id: string
   title: string
   start_time: Date
   end_time: Date
-  color: "blue" | "green" | "red" | "orange"
+  color: {
+    background: string
+    border: string
+    text: string
+  }
+  status: "pending" | "approved"
   time?: string
   location?: string
   description?: string
 }
 
-function createDate(year: number, month: number, day: number, hours: number = 0, minutes: number = 0): Date {
-  var today = new Date()
-  return new Date(year, today.getMonth(), day, hours, minutes)
+interface CalendarEventResponse {
+  id: string
+  title: string
+  start_time: string
+  end_time: string
+  status: string
+  location: string
+  description: string
 }
 
-const sampleEvents: CalendarEvent[] = [
-  { id: "1", title: "Team Meeting", start_time: createDate(2026, 1, 3, 10, 0), end_time: createDate(2026, 1, 3, 11, 0), color: "blue", time: "10:00 AM - 11:00 AM", location: "Conference Room A", description: "Weekly team sync to discuss project progress and blockers." },
-  { id: "2", title: "Project Deadline", start_time: createDate(2026, 1, 5, 17, 0), end_time: createDate(2026, 1, 5, 17, 0), color: "red", time: "5:00 PM", description: "Final submission for the Q1 project deliverables." },
-  { id: "3", title: "Lunch with Client", start_time: createDate(2026, 1, 10, 12, 30), end_time: createDate(2026, 1, 10, 14, 0), color: "green", time: "12:30 PM - 2:00 PM", location: "Downtown Bistro", description: "Discuss partnership opportunities with Acme Corp." },
-  { id: "4", title: "Code Review", start_time: createDate(2026, 1, 10, 15, 0), end_time: createDate(2026, 1, 10, 16, 0 ), color: "blue", time: "3:00 PM - 4:00 PM", location: "Virtual", description: "Review PR #1234 for the new authentication feature." },
-  { id: "5", title: "Workshop", start_time: createDate(2026, 1, 15, 9, 0), end_time: createDate(2026, 1, 15, 12, 0), color: "orange", time: "9:00 AM - 12:00 PM", location: "Training Room", description: "Advanced React patterns and performance optimization workshop." },
-  { id: "6", title: "Sprint Planning", start_time: createDate(2026, 2, 18, 14, 0), end_time: createDate(2026, 2, 18, 16, 0), color: "blue", time: "2:00 PM - 4:00 PM", location: "Conference Room B", description: "Plan tasks and priorities for Sprint 12." },
-  { id: "7", title: "Product Launch", start_time: createDate(2026, 2, 22, 10, 0), end_time: createDate(2026, 2, 22, 10, 0), color: "green", time: "10:00 AM", location: "Main Auditorium", description: "Official launch event for our new product line." },
-  { id: "8", title: "Quarterly Review", start_time: createDate(2026, 2, 28, 13, 0), end_time: createDate(2026, 2, 28, 15, 0), color: "red", time: "1:00 PM - 3:00 PM", location: "Board Room", description: "Q1 performance review with leadership team." },
-  { id: "10", title: "1:1 with Manager", start_time: createDate(2026, 2, 12, 16, 0), end_time: createDate(2026, 2, 12, 16, 30), color: "blue", time: "4:00 PM - 4:30 PM", location: "Office 302", description: "Bi-weekly check-in to discuss career development." },
-  { id: "11", title: "王者", start_time: createDate(2026, 3, 12, 17, 0), end_time: createDate(2026, 3, 12, 23, 59), color: "blue", time: "5:00 PM - 5:30 PM", location: "Office 302", description: "Bi-weekly check-in to discuss career development." },
-  { id: "12", title: "王者", start_time: createDate(2026, 3, 13, 0, 0), end_time: createDate(2026, 3, 13, 23, 59), color: "blue", time: "5:00 PM - 5:30 PM", location: "Office 302", description: "Bi-weekly check-in to discuss career development." },
-  { id: "13", title: "王者", start_time: createDate(2026, 3, 14, 0, 0), end_time: createDate(2026, 3, 14, 23, 59), color: "blue", time: "5:00 PM - 5:30 PM", location: "Office 302", description: "Bi-weekly check-in to discuss career development." },
-]
+const statusColorStyles = {
+  pending: "bg-amber-100 text-amber-800 border-amber-200",
+  approved: "bg-emerald-100 text-emerald-700 border-emerald-200",
+}
 
-const eventColorStyles = {
-  blue: "bg-blue-100 text-blue-700 border-blue-200",
-  green: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  red: "bg-red-100 text-red-700 border-red-200",
-  orange: "bg-orange-100 text-orange-700 border-orange-200",
+function getEventColor(index: number): CalendarEvent["color"] {
+  const hue = (index * 137.508) % 360
+  return {
+    background: `hsl(${hue} 75% 90%)`,
+    border: `hsl(${hue} 60% 72%)`,
+    text: `hsl(${hue} 55% 28%)`,
+  }
 }
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
@@ -87,10 +93,88 @@ function formatTime(date: Date) {
 }
 
 export default function EventCalendarPage() {
+  const router = useRouter()
   const [currentDate, setCurrentDate] = React.useState(new Date())
+  const [events, setEvents] = React.useState<CalendarEvent[]>([])
+  const [eventsLoading, setEventsLoading] = React.useState(true)
+  const [eventsError, setEventsError] = React.useState<string | null>(null)
+  const [refreshKey, setRefreshKey] = React.useState(0)
   const [selectedEvent, setSelectedEvent] = React.useState<CalendarEvent | null>(null)
   const [isEventDialogOpen, setIsEventDialogOpen] = React.useState(false)
 
+  React.useEffect(() => {
+    const controller = new AbortController()
+
+    async function loadEvents() {
+      const token = getToken()
+      if (!token || isTokenExpired()) {
+        removeToken()
+        router.replace("/login")
+        return
+      }
+
+      setEventsLoading(true)
+      setEventsError(null)
+      try {
+        const response = await fetch(`${API_URL}/api/room-bookings/calendar`, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
+        })
+
+        if (response.status === 401) {
+          removeToken()
+          router.replace("/login")
+          return
+        }
+        if (!response.ok) throw new Error("Failed to load overview bookings.")
+
+        const records = await response.json() as CalendarEventResponse[]
+        const loadedEvents = records.flatMap((record): CalendarEvent[] => {
+          const start_time = new Date(record.start_time)
+          const end_time = new Date(record.end_time)
+          const status = record.status.toLowerCase()
+          if (
+            Number.isNaN(start_time.getTime()) ||
+            Number.isNaN(end_time.getTime()) ||
+            end_time < start_time ||
+            (status !== "pending" && status !== "approved")
+          ) {
+            return []
+          }
+
+          return [{
+            id: record.id,
+            title: record.title || record.description || "Room booking",
+            start_time,
+            end_time,
+            status,
+            color: getEventColor(0),
+            time: `${formatTime(start_time)} - ${formatTime(end_time)}`,
+            location: record.location || undefined,
+            description: record.description || undefined,
+          }]
+        })
+        const colorsById = new Map(
+          Array.from(new Set(loadedEvents.map((event) => event.id)))
+            .sort((a, b) => a.localeCompare(b))
+            .map((id, index) => [id, getEventColor(index)])
+        )
+        loadedEvents.forEach((event) => {
+          event.color = colorsById.get(event.id) ?? getEventColor(0)
+        })
+        setEvents(loadedEvents)
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setEventsError(error instanceof Error ? error.message : "Failed to load overview bookings.")
+        }
+      } finally {
+        if (!controller.signal.aborted) setEventsLoading(false)
+      }
+    }
+
+    void loadEvents()
+    return () => controller.abort()
+  }, [refreshKey, router])
 
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
@@ -154,6 +238,18 @@ export default function EventCalendarPage() {
               </Button>
             </div>
           </CardHeader>
+          {(eventsLoading || eventsError) && (
+            <div className="flex items-center justify-between gap-4 border-y px-4 py-3 text-sm">
+              <p className={eventsError ? "text-red-700" : "text-muted-foreground"} role={eventsError ? "alert" : "status"}>
+                {eventsError ?? "Loading bookings..."}
+              </p>
+              {eventsError && (
+                <Button variant="outline" size="sm" onClick={() => setRefreshKey((key) => key + 1)}>
+                  Retry
+                </Button>
+              )}
+            </div>
+          )}
           <CardContent className="p-0 md:p-6 md:pt-0">
             <div className="grid grid-cols-7 border-b">
               {WEEKDAYS.map((day) => (
@@ -167,7 +263,7 @@ export default function EventCalendarPage() {
             </div>
             <div className="grid grid-cols-7">
               {allDays.map((date, index) => {
-                const dayEvents = getEventsForDate(date, sampleEvents)
+                const dayEvents = getEventsForDate(date, events)
                 const isCurrentMonth = date.getMonth() === month
                 const isTodayDate = isToday(date)
 
@@ -199,9 +295,13 @@ export default function EventCalendarPage() {
                           tabIndex={0}
                           onClick={(e) => handleEventClick(e, event)}
                           className={cn(
-                            "truncate rounded px-1.5 py-0.5 text-xs font-medium border cursor-pointer hover:opacity-80 transition-opacity",
-                            eventColorStyles[event.color]
+                            "truncate rounded border px-1.5 py-0.5 text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity"
                           )}
+                          style={{
+                            backgroundColor: event.color.background,
+                            borderColor: event.color.border,
+                            color: event.color.text,
+                          }}
                           title={event.title}
                         >
                           {event.title}
@@ -229,10 +329,10 @@ export default function EventCalendarPage() {
                   <div
                     className={cn(
                       "inline-flex self-start rounded-full px-2.5 py-0.5 text-xs font-medium border mb-2",
-                      eventColorStyles[selectedEvent.color]
+                      statusColorStyles[selectedEvent.status]
                     )}
                   >
-                    {selectedEvent.color.charAt(0).toUpperCase() + selectedEvent.color.slice(1)}
+                    {selectedEvent.status.charAt(0).toUpperCase() + selectedEvent.status.slice(1)}
                   </div>
                   <DialogTitle className="text-xl">{selectedEvent.title}</DialogTitle>
                   <DialogDescription>

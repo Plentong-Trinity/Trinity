@@ -3,8 +3,10 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/johnman136/Trinity/trinity-backend/internal/db"
 	"github.com/johnman136/Trinity/trinity-backend/internal/models"
@@ -15,8 +17,63 @@ type BookingRepository struct {
 	db *sql.DB
 }
 
+var ErrBookingConflict = errors.New("booking conflicts with an existing booking")
+
+const bookingScheduleLockID int64 = 837192401
+
 func NewBookingRepository() *BookingRepository {
 	return &BookingRepository{db: db.DB}
+}
+
+func LockBookingSchedule(ctx context.Context, tx *sql.Tx) error {
+	var lockResult interface{}
+	if err := tx.QueryRowContext(ctx, `SELECT pg_advisory_xact_lock($1)`, bookingScheduleLockID).Scan(&lockResult); err != nil {
+		return fmt.Errorf("failed to lock booking schedule: %w", err)
+	}
+	return nil
+}
+
+func HasRoomBookingConflict(ctx context.Context, tx *sql.Tx, rooms []string, startOn, endOn time.Time) (bool, error) {
+	return hasRoomBookingConflict(ctx, tx, rooms, "$2", "$3", startOn, endOn)
+}
+
+func HasLocalRoomBookingConflict(
+	ctx context.Context,
+	tx *sql.Tx,
+	rooms []string,
+	startDate, startTime, endDate, endTime string,
+) (bool, error) {
+	startExpression := "(($2::text || ' ' || $3::text)::timestamp AT TIME ZONE 'Asia/Kuala_Lumpur')"
+	endExpression := "(($4::text || ' ' || $5::text)::timestamp AT TIME ZONE 'Asia/Kuala_Lumpur')"
+	return hasRoomBookingConflict(
+		ctx, tx, rooms, startExpression, endExpression,
+		startDate, startTime, endDate, endTime,
+	)
+}
+
+func hasRoomBookingConflict(
+	ctx context.Context,
+	tx *sql.Tx,
+	rooms []string,
+	startExpression, endExpression string,
+	args ...interface{},
+) (bool, error) {
+	query := fmt.Sprintf(`
+		SELECT EXISTS (
+			SELECT 1
+			FROM "Booking"
+			WHERE room && $1::varchar[]
+				AND start_on < %s
+				AND end_on > %s
+				AND COALESCE(lower(status::text), 'pending') NOT IN ('denied', 'rejected', 'declined')
+		)
+	`, endExpression, startExpression)
+	queryArgs := append([]interface{}{pq.Array(rooms)}, args...)
+	var conflict bool
+	if err := tx.QueryRowContext(ctx, query, queryArgs...).Scan(&conflict); err != nil {
+		return false, fmt.Errorf("failed to check booking conflicts: %w", err)
+	}
+	return conflict, nil
 }
 
 func (r *BookingRepository) Create(ctx context.Context, userID string, request models.CreateRoomBookingRequest) (*models.RoomBooking, error) {
@@ -26,6 +83,25 @@ func (r *BookingRepository) Create(ctx context.Context, userID string, request m
 	var rooms pq.StringArray
 	if request.EndDate == "" {
 		request.EndDate = request.Date
+	}
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to start booking transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	if err := LockBookingSchedule(ctx, tx); err != nil {
+		return nil, err
+	}
+	conflict, err := HasLocalRoomBookingConflict(
+		ctx, tx, request.Rooms, request.Date, request.StartTime, request.EndDate, request.EndTime,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if conflict {
+		return nil, ErrBookingConflict
 	}
 
 	query := `
@@ -44,7 +120,7 @@ func (r *BookingRepository) Create(ctx context.Context, userID string, request m
 			TO_CHAR(end_on AT TIME ZONE 'Asia/Kuala_Lumpur', 'HH12:MI AM'),
 			description, pax, status::text, COALESCE(deny_reason, '')
 	`
-	err := r.db.QueryRowContext(ctx, query,
+	err = tx.QueryRowContext(ctx, query,
 		request.Requester, request.Participants, pq.Array(request.Rooms), request.Ministry,
 		request.Purpose, request.Date, request.StartTime, request.EndDate, request.EndTime, userID,
 	).Scan(
@@ -54,6 +130,9 @@ func (r *BookingRepository) Create(ctx context.Context, userID string, request m
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create booking: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit booking: %w", err)
 	}
 	booking.Room = strings.Join(rooms, ", ")
 	booking.EndDate = endDate.String
@@ -101,6 +180,47 @@ func (r *BookingRepository) List(ctx context.Context) ([]models.RoomBooking, err
 		return nil, fmt.Errorf("failed to iterate bookings: %w", err)
 	}
 	return bookings, nil
+}
+
+func (r *BookingRepository) ListCalendarEvents(ctx context.Context, rooms []string) ([]models.CalendarEvent, error) {
+	query := `
+		SELECT id, COALESCE(NULLIF(description, ''), 'Room booking'), start_on, end_on,
+			status::text, COALESCE(array_to_string(room, ', '), ''), COALESCE(description, '')
+		FROM "Booking"
+		WHERE start_on IS NOT NULL
+			AND end_on IS NOT NULL
+			AND lower(status::text) NOT IN ('denied', 'rejected', 'declined')
+	`
+	var rows *sql.Rows
+	var err error
+	if len(rooms) > 0 {
+		query += " AND room && $1::varchar[]"
+		query += " ORDER BY start_on"
+		rows, err = r.db.QueryContext(ctx, query, pq.Array(rooms))
+	} else {
+		query += " ORDER BY start_on"
+		rows, err = r.db.QueryContext(ctx, query)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to list calendar events: %w", err)
+	}
+	defer rows.Close()
+
+	events := make([]models.CalendarEvent, 0)
+	for rows.Next() {
+		var event models.CalendarEvent
+		if err := rows.Scan(
+			&event.ID, &event.Title, &event.StartTime, &event.EndTime,
+			&event.Status, &event.Location, &event.Description,
+		); err != nil {
+			return nil, fmt.Errorf("failed to read calendar event: %w", err)
+		}
+		events = append(events, event)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate calendar events: %w", err)
+	}
+	return events, nil
 }
 
 func (r *BookingRepository) UpdateStatus(ctx context.Context, id, status, denialReason string) (*models.RoomBooking, error) {

@@ -14,6 +14,9 @@ import {
 } from "@/components/ui/dialog"
 import { Toaster, toast } from "sonner"
 import { useRouter, useSearchParams } from "next/navigation"
+import { getToken, isTokenExpired, removeToken } from "@/lib/auth"
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
 
 interface CalendarEvent {
   id: string
@@ -26,27 +29,15 @@ interface CalendarEvent {
   description?: string
 }
 
-function createDate(year: number, month: number, day: number, hours: number = 0, minutes: number = 0): Date {
-  // return new Date(year, month - 1, day) // 👈 convert 1–12 → 0–11
-  var today = new Date()
-  return new Date(year, today.getMonth(), day, hours, minutes)
+interface CalendarEventResponse {
+  id: string
+  title: string
+  start_time: string
+  end_time: string
+  status: string
+  location: string
+  description: string
 }
-
-const sampleEvents: CalendarEvent[] = [
-  { id: "1", title: "Team Meeting", start_time: createDate(2026, 1, 3, 10, 0), end_time: createDate(2026, 1, 3, 11, 0), color: "blue", time: "10:00 AM - 11:00 AM", location: "Conference Room A", description: "Weekly team sync to discuss project progress and blockers." },
-  { id: "2", title: "Project Deadline", start_time: createDate(2026, 1, 5, 17, 0), end_time: createDate(2026, 1, 5, 17, 0), color: "red", time: "5:00 PM", description: "Final submission for the Q1 project deliverables." },
-  { id: "3", title: "Lunch with Client", start_time: createDate(2026, 1, 10, 12, 30), end_time: createDate(2026, 1, 10, 14, 0), color: "green", time: "12:30 PM - 2:00 PM", location: "Downtown Bistro", description: "Discuss partnership opportunities with Acme Corp." },
-  { id: "4", title: "Code Review", start_time: createDate(2026, 1, 10, 15, 0), end_time: createDate(2026, 1, 10, 16, 0 ), color: "blue", time: "3:00 PM - 4:00 PM", location: "Virtual", description: "Review PR #1234 for the new authentication feature." },
-  { id: "5", title: "Workshop", start_time: createDate(2026, 1, 15, 9, 0), end_time: createDate(2026, 1, 15, 12, 0), color: "orange", time: "9:00 AM - 12:00 PM", location: "Training Room", description: "Advanced React patterns and performance optimization workshop." },
-  { id: "6", title: "Sprint Planning", start_time: createDate(2026, 2, 18, 14, 0), end_time: createDate(2026, 2, 18, 16, 0), color: "blue", time: "2:00 PM - 4:00 PM", location: "Conference Room B", description: "Plan tasks and priorities for Sprint 12." },
-  { id: "7", title: "Product Launch", start_time: createDate(2026, 2, 22, 10, 0), end_time: createDate(2026, 2, 22, 10, 0), color: "green", time: "10:00 AM", location: "Main Auditorium", description: "Official launch event for our new product line." },
-  { id: "8", title: "Quarterly Review", start_time: createDate(2026, 2, 28, 13, 0), end_time: createDate(2026, 2, 28, 15, 0), color: "red", time: "1:00 PM - 3:00 PM", location: "Board Room", description: "Q1 performance review with leadership team." },
-  { id: "10", title: "1:1 with Manager", start_time: createDate(2026, 2, 12, 16, 0), end_time: createDate(2026, 2, 12, 16, 30), color: "blue", time: "4:00 PM - 4:30 PM", location: "Office 302", description: "Bi-weekly check-in to discuss career development." },
-  { id: "11", title: "王者", start_time: createDate(2026, 3, 12, 17, 0), end_time: createDate(2026, 3, 12, 23, 59), color: "blue", time: "5:00 PM - 5:30 PM", location: "Office 302", description: "Bi-weekly check-in to discuss career development." },
-  { id: "12", title: "王者", start_time: createDate(2026, 3, 13, 0, 0), end_time: createDate(2026, 3, 13, 23, 59), color: "blue", time: "5:00 PM - 5:30 PM", location: "Office 302", description: "Bi-weekly check-in to discuss career development." },
-  { id: "13", title: "王者", start_time: createDate(2026, 3, 14, 0, 0), end_time: createDate(2026, 3, 14, 23, 59), color: "blue", time: "5:00 PM - 5:30 PM", location: "Office 302", description: "Bi-weekly check-in to discuss career development." },
-]
-
 
 const eventColorStyles = {
   blue: "bg-blue-100 text-blue-700 border-blue-200",
@@ -71,15 +62,6 @@ function isToday(date: Date) {
 
 function getEventsForDate(date: Date, events: CalendarEvent[]) {
   return events.filter((event) => isSameDay(event.start_time, date) || isSameDay(event.end_time, date) || (event.start_time < date && event.end_time > date))
-}
-
-function isFullDayEventOnDate(event: CalendarEvent, date: Date) {
-  const dayStart = new Date(date)
-  const dayEnd = new Date(date)
-  dayStart.setHours(0, 0, 0, 0)
-  dayEnd.setHours(23, 59, 0, 0)
-
-  return event.start_time <= dayStart && event.end_time >= dayEnd
 }
 
 function getFutureEventDates(selectedDate: Date | null, events: CalendarEvent[]) {
@@ -136,11 +118,26 @@ function formatTime(date: Date) {
   })
 }
 
+function combineDateAndTime(date: Date, time: string) {
+  const [hours, minutes] = time.split(":").map(Number)
+  const result = new Date(date)
+  result.setHours(hours, minutes, 0, 0)
+  return result
+}
+
+function bookingOverlapsEvent(start: Date, end: Date, events: CalendarEvent[]) {
+  return end <= start || events.some((event) => start < event.end_time && end > event.start_time)
+}
+
 export default function EventCalendarPage() {
   const [currentDate, setCurrentDate] = React.useState(new Date())
   const [startDate, setStartDate] = React.useState<Date | null>(null)
   const [endDate, setEndDate] = React.useState<Date | null>(null)
-  const nextConstraint = React.useMemo(() => getNextEvent(startDate, sampleEvents), [startDate]);
+  const [events, setEvents] = React.useState<CalendarEvent[]>([])
+  const [eventsLoading, setEventsLoading] = React.useState(true)
+  const [eventsError, setEventsError] = React.useState<string | null>(null)
+  const [roomsReady, setRoomsReady] = React.useState(false)
+  const nextConstraint = React.useMemo(() => getNextEvent(startDate, events), [startDate, events]);
   const [selectedEvent, setSelectedEvent] = React.useState<CalendarEvent | null>(null)
   const [isDayDialogOpen, setIsDayDialogOpen] = React.useState(false)
   const [isEventDialogOpen, setIsEventDialogOpen] = React.useState(false)
@@ -151,6 +148,66 @@ export default function EventCalendarPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [selectedRooms, setSelectedRooms] = React.useState<string[]>([])
+
+  React.useEffect(() => {
+    if (!roomsReady) return
+
+    let isCurrent = true
+
+    const loadEvents = async () => {
+      const token = getToken()
+      if (!token || isTokenExpired()) {
+        removeToken()
+        router.replace("/login")
+        return
+      }
+
+      setEventsLoading(true)
+      setEventsError(null)
+      try {
+        const params = new URLSearchParams()
+        if (selectedRooms.length > 0) params.set("rooms", selectedRooms.join(","))
+        const query = params.toString()
+        const response = await fetch(`${API_URL}/api/room-bookings/calendar${query ? `?${query}` : ""}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+
+        if (response.status === 401) {
+          removeToken()
+          router.replace("/login")
+          return
+        }
+        if (!response.ok) throw new Error("Failed to load calendar events")
+
+        const records = (await response.json()) as CalendarEventResponse[]
+        const loadedEvents = records.map((record) => {
+          const start_time = new Date(record.start_time)
+          const end_time = new Date(record.end_time)
+          return {
+            id: record.id,
+            title: record.title,
+            start_time,
+            end_time,
+            color: record.status.toLowerCase() === "approved" ? "green" as const : "orange" as const,
+            time: `${formatTime(start_time)} - ${formatTime(end_time)}`,
+            location: record.location || undefined,
+            description: record.description || undefined,
+          }
+        }).filter((event) => !Number.isNaN(event.start_time.getTime()) && !Number.isNaN(event.end_time.getTime()))
+
+        if (isCurrent) setEvents(loadedEvents)
+      } catch (error) {
+        if (isCurrent) setEventsError(error instanceof Error ? error.message : "Failed to load calendar events")
+      } finally {
+        if (isCurrent) setEventsLoading(false)
+      }
+    }
+
+    void loadEvents()
+    return () => {
+      isCurrent = false
+    }
+  }, [router, roomsReady, selectedRooms])
 
   React.useEffect(() => {
     const roomsParam = searchParams.get("rooms")
@@ -175,6 +232,7 @@ export default function EventCalendarPage() {
         }
       }
     }
+      setRoomsReady(true)
   }, [searchParams])
 
   React.useEffect(() => {
@@ -324,42 +382,18 @@ export default function EventCalendarPage() {
   };
 
   const getAvailableTimes = (targetDate: Date, type: 'start' | 'end') => {
-    const allSlots = generateTimeSlots();
-    const dayEvents = getEventsForDate(targetDate, sampleEvents);
+    return generateTimeSlots().filter((slot) => {
+      const [hour, minute] = slot.split(":").map(Number)
+      if (type === "start" && (hour > 22 || (hour === 22 && minute > 0))) return false
 
-    if (dayEvents.length === 0 && type === 'start') return allSlots.filter(slot => {
-      const [h, m] = slot.split(':').map(Number);
-      return h <= 22 && (h < 22 || m === 0); // Allow booking until 10 PM if no events
-    });
-    
-    if (dayEvents.length === 0 && type === 'end') return allSlots.filter(slot => {
-      const [h, m] = slot.split(':').map(Number);
-      return h >= 9 && (h > 9 || m === 0); // Allow booking starting from 9 AM if no events
-    });
-
-    if (type === 'start') {
-      // Start time must be AFTER the last event of that day ends
-      const lastEventEnd = dayEvents[dayEvents.length - 1].end_time;
-      const minHour = Math.max(lastEventEnd.getHours(), 9); // Assuming bookings can only start after 9 AM
-      const minMin = lastEventEnd.getMinutes();
-      
-
-      return allSlots.filter(slot => {
-        const [h, m] = slot.split(':').map(Number);
-        return h > minHour || (h === minHour && m >= minMin);
-      });
-    } else {
-      // End time must be BEFORE the first event of that day starts
-      const firstEventStart = dayEvents[0].start_time;
-      const maxHour = Math.min(firstEventStart.getHours(), 23); // Assuming bookings can only end before 6 PM
-      const maxMin = firstEventStart.getMinutes();
-
-      return allSlots.filter(slot => {
-        const [h, m] = slot.split(':').map(Number);
-        return h < maxHour || (h === maxHour && m <= maxMin);
-      });
-    }
-};
+      const candidate = combineDateAndTime(targetDate, slot)
+      return !events.some((event) =>
+        type === "start"
+          ? candidate >= event.start_time && candidate < event.end_time
+          : candidate > event.start_time && candidate < event.end_time,
+      )
+    })
+  }
 
   const isConstraintDay = (date: Date) => {
     return nextConstraint && isSameDay(date, nextConstraint.start_time);
@@ -376,8 +410,21 @@ export default function EventCalendarPage() {
     setIsEventDialogOpen(true)
   }
 
-  const selectedDateEvents = startDate ? getEventsForDate(startDate, sampleEvents) : []
-  const futureEventDates = getFutureEventDates(startDate, sampleEvents)
+  const selectedDateEvents = startDate ? getEventsForDate(startDate, events) : []
+  const futureEventDates = getFutureEventDates(startDate, events)
+  const availableStartTimes = startDate ? getAvailableTimes(startDate, "start") : []
+  const availableEndTimes = endDate ? getAvailableTimes(endDate, "end") : []
+  const canConfirmBooking = Boolean(
+    startDate &&
+    endDate &&
+    availableStartTimes.includes(startTime) &&
+    availableEndTimes.includes(endTime) &&
+    !bookingOverlapsEvent(
+      combineDateAndTime(startDate, startTime),
+      combineDateAndTime(endDate, endTime),
+      events,
+    ),
+  )
 
   return (
     <>
@@ -404,6 +451,11 @@ export default function EventCalendarPage() {
           </div>
         </CardHeader>
         <CardContent className="p-0 md:p-6 md:pt-0">
+          {eventsLoading && <p className="px-4 py-3 text-sm text-muted-foreground">Loading bookings...</p>}
+          {eventsError && <p role="alert" className="px-4 py-3 text-sm text-red-600">{eventsError}</p>}
+          {!eventsLoading && !eventsError && events.length === 0 && (
+            <p className="px-4 py-3 text-sm text-muted-foreground">No bookings found.</p>
+          )}
           <div className="grid grid-cols-7 border-b">
             {WEEKDAYS.map((day) => (
               <div
@@ -416,7 +468,7 @@ export default function EventCalendarPage() {
           </div>
           <div className="grid grid-cols-7">
             {allDays.map((date, index) => {
-              const dayEvents = getEventsForDate(date, sampleEvents)
+              const dayEvents = getEventsForDate(date, events)
               const isCurrentMonth = date.getMonth() === month
               const isTodayDate = isToday(date)
               const isStartDate = startDate && isSameDay(date, startDate)
@@ -426,7 +478,7 @@ export default function EventCalendarPage() {
               )
               const inRange = isDateInRange(date)
               const isWall = isConstraintDay(date)
-              const isFullyBooked = dayEvents.some((event) => isFullDayEventOnDate(event, date))
+              const isFullyBooked = getAvailableTimes(date, startDate ? "end" : "start").length === 0
 
               return (
                 <button
@@ -585,7 +637,8 @@ export default function EventCalendarPage() {
                         value={startTime}
                         onChange={(e) => setStartTime(e.target.value)}
                       >
-                        {getAvailableTimes(startDate, 'start').map(time => (
+                        {!availableStartTimes.includes(startTime) && <option value={startTime} disabled>Unavailable</option>}
+                        {availableStartTimes.map(time => (
                           <option key={time} value={time}>{time}</option>
                         ))}
                       </select>
@@ -599,7 +652,8 @@ export default function EventCalendarPage() {
                         value={endTime}
                         onChange={(e) => setEndTime(e.target.value)}
                       >
-                        {getAvailableTimes(endDate, 'end').map(time => (
+                        {!availableEndTimes.includes(endTime) && <option value={endTime} disabled>Unavailable</option>}
+                        {availableEndTimes.map(time => (
                           <option key={time} value={time}>{time}</option>
                         ))}
                       </select>
@@ -617,8 +671,14 @@ export default function EventCalendarPage() {
           </DialogHeader>
 
           <div className="flex flex-col gap-3 mt-4">
+            {!canConfirmBooking && (
+              <p role="status" className="text-sm text-red-600">
+                The selected booking time overlaps an existing event or has no available times.
+              </p>
+            )}
             <Button 
               className="w-full bg-blue-600 hover:bg-blue-700" 
+              disabled={!canConfirmBooking}
               onClick={() => {
                 toast.success("Booking range confirmed!", {
                   description: `Scheduled from ${startDate?.toLocaleDateString()} ${startTime} to ${endDate?.toLocaleDateString()} ${endTime}`

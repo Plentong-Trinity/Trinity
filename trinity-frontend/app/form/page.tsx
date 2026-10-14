@@ -437,7 +437,8 @@ export default function FormPage() {
                   />
                 </div>
 
-                <div className="space-y-2">
+                {/* Supporting Documents Upload Section (Currently Commented Out) */}
+                {/* <div className="space-y-2">
                   <Label className="text-sm font-semibold">Supporting Documents</Label>
                   <div className="flex items-center justify-center w-full">
                     <label
@@ -495,7 +496,7 @@ export default function FormPage() {
                       </div>
                     </div>
                   )}
-                </div>
+                </div> */}
 
                 <Button
                   type="submit"
