@@ -108,23 +108,7 @@ func Login(c *gin.Context) {
 	// Update last login time
 	_ = userRepo.UpdateLastLogin(ctx, user.ID)
 
-	// Create JWT claims
-	claims := &Claims{
-		Email:  user.Email,
-		UserID: user.ID,
-		Role:   string(user.Role),
-		Name:   user.Name,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(12 * time.Hour)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			NotBefore: jwt.NewNumericDate(time.Now()),
-			Subject:   user.ID,
-		},
-	}
-
-	// Create and sign token
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString([]byte(GetJWTSecret()))
+	tokenString, err := createToken(user)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to generate token",
@@ -137,6 +121,25 @@ func Login(c *gin.Context) {
 		User:    user.ToUserResponse(),
 		Message: "Login successful",
 	})
+}
+
+func createToken(user *models.User) (string, error) {
+	now := time.Now()
+	claims := &Claims{
+		Email:  user.Email,
+		UserID: user.ID,
+		Role:   string(user.Role),
+		Name:   user.Name,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(now.Add(12 * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now),
+			Subject:   user.ID,
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(GetJWTSecret()))
 }
 
 // Signup handles user registration
