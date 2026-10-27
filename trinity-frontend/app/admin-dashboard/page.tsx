@@ -22,8 +22,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Textarea } from "@/components/ui/textarea"
 import {
   Dialog,
   DialogContent,
@@ -32,9 +30,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Textarea } from "@/components/ui/textarea"
 import { useRequireRole } from "@/hooks/use-auth"
 import { LoadingPage } from "@/components/loading-page"
 import { getAuthHeader } from "@/lib/auth"
+import { WeekendMassEditor } from "@/components/mass/weekend-mass-editor"
+import { WeekdayMassEditor } from "@/components/mass/weekday-mass-editor"
+import { SpecialMassEditor } from "@/components/mass/special-mass-editor"
+import { MassEditingProvider } from "@/components/mass/mass-editing-context"
 
 type BookingStatus = "pending" | "approved" | "denied"
 type BookingFilter = "all" | BookingStatus
@@ -67,23 +71,18 @@ type Bulletin = {
   fileName: string
 }
 
-type MassTiming = {
+type FixedMassTiming = {
   id: string
   language: string
-  time: string
+  day: string
+  hour: string
+  period: string
 }
 
 type FixedMassSchedule = {
   id: string
   title: "Weekend Mass" | "Weekday Mass"
-  timings: MassTiming[]
-  remarks: string
-}
-
-type SpecialMassSchedule = {
-  id: string
-  title: string
-  timings: MassTiming[]
+  timings: FixedMassTiming[]
   remarks: string
 }
 
@@ -102,9 +101,10 @@ const initialFixedMassSchedules: FixedMassSchedule[] = [
     id: "FIXED-001",
     title: "Weekend Mass",
     timings: [
-      { id: "T-001", language: "English", time: "Sat 5:00 PM" },
-      { id: "T-002", language: "Chinese", time: "Sat 8:00 PM | Sun 8:00 AM" },
-      { id: "T-003", language: "BM", time: "Sun 11:30 AM" },
+      { id: "T-001", language: "English", day: "Saturday", hour: "5", period: "PM" },
+      { id: "T-002", language: "Chinese", day: "Saturday", hour: "8", period: "PM" },
+      { id: "T-003", language: "Chinese", day: "Sunday", hour: "8", period: "AM" },
+      { id: "T-004", language: "BM", day: "Sunday", hour: "11", period: "AM" },
     ],
     remarks: "Regular weekend schedule",
   },
@@ -112,23 +112,23 @@ const initialFixedMassSchedules: FixedMassSchedule[] = [
     id: "FIXED-002",
     title: "Weekday Mass",
     timings: [
-      { id: "T-004", language: "English", time: "Mon - Fri 6:30 AM" },
-      { id: "T-005", language: "Chinese", time: "Wed 8:00 PM" },
+      { id: "T-005", language: "English", day: "Monday", hour: "6", period: "AM" },
+      { id: "T-006", language: "English", day: "Tuesday", hour: "6", period: "AM" },
+      { id: "T-007", language: "English", day: "Wednesday", hour: "6", period: "AM" },
+      { id: "T-008", language: "English", day: "Thursday", hour: "6", period: "AM" },
+      { id: "T-009", language: "English", day: "Friday", hour: "6", period: "AM" },
+      { id: "T-010", language: "Chinese", day: "Wednesday", hour: "8", period: "PM" },
     ],
     remarks: "Regular weekday schedule",
   },
 ]
 
-const initialSpecialMassSchedules: SpecialMassSchedule[] = [
-  {
-    id: "SPECIAL-001",
-    title: "Special Mass",
-    timings: [
-      { id: "T-006", language: "English", time: "No special mass currently" },
-    ],
-    remarks: "Please contact parish office for special arrangements.",
-  },
-]
+const WEEKDAY_OPTIONS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+const WEEKEND_OPTIONS = ["Saturday", "Sunday"]
+const MASS_HOUR_OPTIONS = Array.from({ length: 12 }, (_, index) => String(index + 1))
+const MASS_MINUTE_OPTIONS = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, "0"))
+const MASS_PERIOD_OPTIONS = ["AM", "PM"]
+const MASS_LANGUAGE_OPTIONS = ["English", "Chinese", "BM", "Tamil"]
 
 const statusStyle: Record<BookingStatus, string> = {
   pending: "border-amber-200 bg-amber-50 text-amber-700",
@@ -146,9 +146,6 @@ export default function AdminPage() {
   const [bulletins, setBulletins] = React.useState<Bulletin[]>(initialBulletins)
   const [fixedMassSchedules, setFixedMassSchedules] = React.useState<FixedMassSchedule[]>(
     initialFixedMassSchedules
-  )
-  const [specialMassSchedules, setSpecialMassSchedules] = React.useState<SpecialMassSchedule[]>(
-    initialSpecialMassSchedules
   )
   const [pendingBookingAction, setPendingBookingAction] = React.useState<PendingBookingAction | null>(null)
   const [selectedBooking, setSelectedBooking] = React.useState<RoomBooking | null>(null)
@@ -276,7 +273,7 @@ export default function AdminPage() {
   function updateFixedMassTiming(
   scheduleId: string,
   timingId: string,
-  field: keyof Omit<MassTiming, "id">,
+  field: keyof Pick<FixedMassTiming, "language" | "day" | "hour" | "period">,
   value: string
 ) {
   setFixedMassSchedules((current) =>
@@ -287,6 +284,41 @@ export default function AdminPage() {
             timings: schedule.timings.map((timing) =>
               timing.id === timingId ? { ...timing, [field]: value } : timing
             ),
+          }
+        : schedule
+    )
+  )
+}
+
+function addFixedMassTiming(scheduleId: string) {
+  setFixedMassSchedules((current) =>
+    current.map((schedule) =>
+      schedule.id === scheduleId
+        ? {
+            ...schedule,
+            timings: [
+              ...schedule.timings,
+              {
+                id: `T-${Date.now()}`,
+                language: "English",
+                day: schedule.title === "Weekend Mass" ? WEEKEND_OPTIONS[0] : WEEKDAY_OPTIONS[0],
+                hour: "1",
+                period: "AM",
+              },
+            ],
+          }
+        : schedule
+    )
+  )
+}
+
+function removeFixedMassTiming(scheduleId: string, timingId: string) {
+  setFixedMassSchedules((current) =>
+    current.map((schedule) =>
+      schedule.id === scheduleId
+        ? {
+            ...schedule,
+            timings: schedule.timings.filter((timing) => timing.id !== timingId),
           }
         : schedule
     )
@@ -301,99 +333,12 @@ function updateFixedMassRemarks(scheduleId: string, value: string) {
   )
 }
 
-function addSpecialMassSchedule() {
-  setSpecialMassSchedules((current) => [
-    ...current,
-    {
-      id: `SPECIAL-${Date.now()}`,
-      title: "New Special Mass",
-      timings: [],
-      remarks: "",
-    },
-  ])
-}
-
-function updateSpecialMassSchedule(
-  scheduleId: string,
-  field: keyof Omit<SpecialMassSchedule, "id" | "timings">,
-  value: string
-) {
-  setSpecialMassSchedules((current) =>
-    current.map((schedule) =>
-      schedule.id === scheduleId ? { ...schedule, [field]: value } : schedule
-    )
-  )
-}
-
-function addSpecialMassTiming(scheduleId: string) {
-  setSpecialMassSchedules((current) =>
-    current.map((schedule) =>
-      schedule.id === scheduleId
-        ? {
-            ...schedule,
-            timings: [
-              ...schedule.timings,
-              {
-                id: `T-${Date.now()}`,
-                language: "English",
-                time: "",
-              },
-            ],
-          }
-        : schedule
-    )
-  )
-}
-
-function updateSpecialMassTiming(
-  scheduleId: string,
-  timingId: string,
-  field: keyof Omit<MassTiming, "id">,
-  value: string
-) {
-  setSpecialMassSchedules((current) =>
-    current.map((schedule) =>
-      schedule.id === scheduleId
-        ? {
-            ...schedule,
-            timings: schedule.timings.map((timing) =>
-              timing.id === timingId ? { ...timing, [field]: value } : timing
-            ),
-          }
-        : schedule
-    )
-  )
-}
-
-function removeSpecialMassTiming(scheduleId: string, timingId: string) {
-  setSpecialMassSchedules((current) =>
-    current.map((schedule) =>
-      schedule.id === scheduleId
-        ? {
-            ...schedule,
-            timings: schedule.timings.filter((timing) => timing.id !== timingId),
-          }
-        : schedule
-    )
-  )
-}
-
-function removeSpecialMassSchedule(scheduleId: string) {
-  setSpecialMassSchedules((current) =>
-    current.filter((schedule) => schedule.id !== scheduleId)
-  )
-}
-
-  if (isCheckingAuth) {
-    return <LoadingPage />
-  }
-
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-24 md:px-8">
       <div className="mx-auto max-w-7xl space-y-8">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <Button asChild variant="ghost" className="mb-3 gap-2 px-0 pr-1">
+            <Button asChild variant="ghost" className="mb-3 gap-2 px-0">
               <Link href="/">
                 <ArrowLeft className="h-4 w-4" /> Back to website
               </Link>
@@ -407,6 +352,9 @@ function removeSpecialMassSchedule(scheduleId: string) {
             </p>
           </div>
 
+          <Button className="gap-2">
+            <Save className="h-4 w-4" /> Save Changes
+          </Button>
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
@@ -644,200 +592,28 @@ function removeSpecialMassSchedule(scheduleId: string) {
 
           <TabsContent value="mass" className="space-y-4">
             <Card>
-              <CardHeader className="flex flex-row items-start justify-between gap-4">
-                <div>
+              <CardHeader>
                   <CardTitle>Edit mass schedule</CardTitle>
                   <CardDescription>
                     Update the schedule shown on the public landing page.
                   </CardDescription>
-                </div>
               </CardHeader>
 
               <CardContent className="space-y-6">
-                {fixedMassSchedules.map((schedule) => (
-                <Card key={schedule.id} className="border-slate-200">
-                  <CardContent className="space-y-4 p-4">
-                    <div className="border-b pb-2">
-                      <h3 className="text-xl font-semibold text-slate-900">
-                        {schedule.title}
-                      </h3>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="grid gap-3 px-1 md:grid-cols-[180px_1fr]">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-900">
-                          Language
-                        </p>
-
-                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-900">
-                          Mass Timing
-                        </p>
-                      </div>
-
-                      {schedule.timings.map((timing) => (
-                        <div
-                          key={timing.id}
-                          className="grid gap-3 md:grid-cols-[180px_1fr]"
-                        >
-                          <div className="rounded-md border border-[#d6cbbd] px-3 py-2 text-sm text-[#5c4033]">
-                            {timing.language}
-                          </div>
-
-                          <Input
-                            value={timing.time}
-                            onChange={(event) =>
-                              updateFixedMassTiming(
-                                schedule.id,
-                                timing.id,
-                                "time",
-                                event.target.value
-                              )
-                            }
-                            className="bg-white"
-                          />
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Remarks</Label>
-                      <Input
-                        value={schedule.remarks}
-                        onChange={(event) =>
-                          updateFixedMassRemarks(schedule.id, event.target.value)
-                        }
-                        className="bg-white"
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-
-                <div className="border-t pt-4">
-                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-4">
-                    <h3 className="text-lg font-semibold">Special Mass</h3>
-                    <Button onClick={addSpecialMassSchedule} className="gap-2 md:shrink-0">
-                      <Plus className="h-4 w-4" /> Add Special Mass
-                    </Button>
-                  </div>
-
-                  {specialMassSchedules.map((schedule) => (
-                    <Card key={schedule.id} className="mb-4 border-slate-200">
-                      <CardContent className="space-y-4 p-4">
-                        <div className="space-y-2">
-                          <Label>Special mass title</Label>
-                          <Input
-                            value={schedule.title}
-                            onChange={(event) =>
-                              updateSpecialMassSchedule(
-                                schedule.id,
-                                "title",
-                                event.target.value
-                              )
-                            }
-                            placeholder="e.g. Christmas Eve Mass"
-                            className="bg-white"
-                          />
-                        </div>
-
-                        <div className="space-y-3">
-                          {schedule.timings.map((timing) => (
-                            <div
-                              key={timing.id}
-                              className="grid gap-3 md:grid-cols-[1fr_2fr_auto]"
-                            >
-                              <div className="space-y-2">
-                                <Label>Language</Label>
-                                <select
-                                  value={timing.language}
-                                  onChange={(event) =>
-                                    updateSpecialMassTiming(
-                                      schedule.id,
-                                      timing.id,
-                                      "language",
-                                      event.target.value
-                                    )
-                                  }
-                                  className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm "
-                                >
-                                  <option value="English">English</option>
-                                  <option value="Chinese">Chinese</option>
-                                  <option value="BM">BM</option>
-                                  <option value="Tamil">Tamil</option>
-                                </select>
-                              </div>
-
-                              <div className="space-y-2">
-                                <Label>Mass timing</Label>
-                                <Input
-                                  value={timing.time}
-                                  onChange={(event) =>
-                                    updateSpecialMassTiming(
-                                      schedule.id,
-                                      timing.id,
-                                      "time",
-                                      event.target.value
-                                    )
-                                  }
-                                  placeholder="e.g. 24 Dec 10:00 PM"
-                                  className="bg-white"
-                                />
-                              </div>
-
-                              <div className="flex items-end">
-                                <Button
-                                  variant="destructive"
-                                  onClick={() =>
-                                    removeSpecialMassTiming(schedule.id, timing.id)
-                                  }
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-
-                        <Button
-                          variant="outline"
-                          className="gap-2"
-                          onClick={() => addSpecialMassTiming(schedule.id)}
-                        >
-                          <Plus className="h-4 w-4" /> Add Mass Timing
-                        </Button>
-
-                        <div className="space-y-2">
-                          <Label>Remarks</Label>
-                          <Input
-                            value={schedule.remarks}
-                            onChange={(event) =>
-                              updateSpecialMassSchedule(
-                                schedule.id,
-                                "remarks",
-                                event.target.value
-                              )
-                            }
-                            className="bg-white"
-                          />
-                        </div>
-
-                        <Button
-                          variant="destructive"
-                          className="gap-2"
-                          onClick={() => removeSpecialMassSchedule(schedule.id)}
-                        >
-                          <Trash2 className="h-4 w-4" /> Remove Special Mass
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
+                <MassEditingProvider>
+                <WeekendMassEditor />
+                <div className="border-t pt-6">
+                  <WeekdayMassEditor />
                 </div>
+                
+
+
+
+                <div className="border-t pt-6">
+                  <SpecialMassEditor />
+                </div>
+                </MassEditingProvider>
               </CardContent>
-              <div className="flex justify-end border-t px-6 py-4">
-                <Button className="gap-2">
-                  <Save className="h-4 w-4" /> Save Changes
-                </Button>
-              </div>
             </Card>
           </TabsContent>
         </Tabs>

@@ -47,4 +47,40 @@ func Register(r *gin.Engine) {
 	)
 	adminRoomBookings.GET("", handlers.ListRoomBookings)
 	adminRoomBookings.PATCH("/:id/status", handlers.UpdateRoomBookingStatus)
+
+	r.GET("/api/weekend-mass", handlers.ListWeekendMass)
+
+	weekendAdmin := r.Group(
+		"/api/weekend-mass",
+		middleware.JWTAuth(),
+		middleware.RequireRole("admin"),
+	)
+
+	weekendAdmin.POST("", handlers.CreateWeekendMass)
+	weekendAdmin.PUT("/:id", handlers.UpdateWeekendMass)
+	weekendAdmin.DELETE("/:id", handlers.DeleteWeekendMass)
+
+	r.GET("/api/weekday-mass", handlers.ListWeekdayMass)
+
+	weekdayAdmin := r.Group(
+		"/api/weekday-mass",
+		middleware.JWTAuth(),
+		middleware.RequireRole("admin"),
+	)
+
+	weekdayAdmin.POST("", handlers.CreateWeekdayMass)
+	weekdayAdmin.PUT("/:id", handlers.UpdateWeekdayMass)
+	weekdayAdmin.DELETE("/:id", handlers.DeleteWeekdayMass)
+
+	r.GET("/api/special-mass", handlers.ListSpecialMass)
+
+	specialAdmin := r.Group(
+		"/api/special-mass",
+		middleware.JWTAuth(),
+		middleware.RequireRole("admin"),
+	)
+
+	specialAdmin.POST("", handlers.CreateSpecialMass)
+	specialAdmin.PUT("/:id", handlers.UpdateSpecialMass)
+	specialAdmin.DELETE("/:id", handlers.DeleteSpecialMass)
 }

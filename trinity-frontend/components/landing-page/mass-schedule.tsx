@@ -1,5 +1,8 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { Flame, Shield, BookOpen } from "lucide-react"
+import { WeekendMassList } from "@/components/mass/weekend-mass-list"
+import { WeekdayMassList } from "@/components/mass/weekday-mass-list"
+import { SpecialMassList } from "@/components/mass/special-mass-list"
 
 export function MassSection() {
   return (
@@ -23,12 +26,11 @@ export function MassSection() {
                     <Flame className="h-8 w-8 text-primary" />
                   </div>
                 </div>
-                <h3 className="text-xl font-semibold text-center mb-2">GOD DAMN Mass</h3>
-                <p className="text-center text-muted-foreground text-sm">
-                  <strong className="font-semibold">English mass:</strong> Sat 5pm <br/>
-                  <strong className="font-semibold">Chinese mass:</strong> Sat 8pm | Sun 8 am <br/>
-                  <strong className="font-semibold">BM mass:</strong> Sun 11.30am (updated)
-                </p>
+                <h3 className="text-xl font-semibold text-center mb-2">
+                  Weekend Mass
+                </h3>
+
+                <WeekendMassList />
               </CardContent>
             </Card>
 
@@ -39,12 +41,11 @@ export function MassSection() {
                     <Shield className="h-8 w-8 text-primary" />
                   </div>
                 </div>
-                <h3 className="text-xl font-semibold text-center mb-2">Damn Mass</h3>
-                <p className="text-center text-muted-foreground text-base">
-                  <strong className="font-semibold">English mass:</strong> Sat 5pm <br/>
-                  <strong className="font-semibold">Chinese mass:</strong> Sat 8pm | Sun 8 am <br/>
-                  <strong className="font-semibold">BM mass:</strong> Sun 11.30am (updated)
-                </p>
+                <h3 className="text-xl font-semibold text-center mb-2">
+                  Weekday Mass
+                </h3>
+
+                <WeekdayMassList />
               </CardContent>
             </Card>
           </div>
@@ -56,12 +57,9 @@ export function MassSection() {
                   <BookOpen className="h-8 w-8 text-primary" />
                 </div>
               </div>
-              <h3 className="text-xl font-semibold text-center mb-2">Special GOD DAMN mass</h3>
-              <div className="h-full flex-1 items-center justify-center flex"> 
-                <p className="text-center text-muted-foreground">
-                  No Special mass. <br/> 
-                  Please contact us for special arrangements.
-                </p>
+              <h3 className="text-xl font-semibold text-center mb-2">Special Mass</h3>
+              <div className="h-full flex-1 items-center justify-center flex">
+                <SpecialMassList />
               </div>
             </CardContent>
           </Card>
