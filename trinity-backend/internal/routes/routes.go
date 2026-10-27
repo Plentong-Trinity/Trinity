@@ -25,6 +25,8 @@ func Register(r *gin.Engine) {
 
 	protectedAPI := r.Group("/api", middleware.RequestLogger(), middleware.JWTAuth())
 	{
+		protectedAPI.PATCH("/profile/name", handlers.UpdateProfileName)
+		protectedAPI.POST("/profile/password", handlers.ChangePassword)
 		protectedAPI.POST("/bookings", handlers.CreateBooking)
 		protectedAPI.GET("/bookings", handlers.ListUserBookings)
 		protectedAPI.DELETE("/bookings/:id", handlers.DeleteUserBooking)

@@ -123,6 +123,45 @@ curl -X POST http://localhost:8080/auth/logout \
 
 ---
 
+### 4. Update Profile Name
+**Endpoint:** `PATCH /api/profile/name`
+
+**Description:** Update the authenticated user's name. Returns a refreshed JWT so the updated name appears in the navigation.
+
+**Request:**
+```json
+{
+  "name": "New Name"
+}
+```
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Response (200 OK):** `{ "message": "Profile name updated", "token": "<refreshed JWT>", "user": { ... } }`
+
+---
+
+### 5. Change Password
+**Endpoint:** `POST /api/profile/password`
+
+**Description:** Change the authenticated user's password after verifying the current password. Passwords must be 6-72 characters.
+
+**Request:**
+```json
+{
+  "current_password": "current password",
+  "new_password": "new secure password"
+}
+```
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Response (200 OK):** `{ "message": "Password changed successfully" }`
+
+**Error Response (401 Unauthorized):** `{ "error": "Current password is incorrect" }`
+
+---
+
 ## Public Endpoints
 
 ### 4. Health Check

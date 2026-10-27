@@ -256,7 +256,7 @@ function NavLinks({ mobile = false, scrollToSection, onClick, userRole, userName
             )}
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <Link href="/change-password" onClick={onClick}>Change password</Link>
+              <Link href="/profile" onClick={onClick}>Profile &amp; password</Link>
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => { onLogout?.(); onClick?.(); }}

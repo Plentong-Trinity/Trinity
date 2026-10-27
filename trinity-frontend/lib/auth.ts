@@ -34,6 +34,12 @@ export interface SignupRequest {
   phone?: string
 }
 
+interface ProfileUpdateResponse {
+  token: string
+  user: User
+  message: string
+}
+
 /**
  * Get the stored JWT token from localStorage
  */
@@ -76,6 +82,54 @@ export function getAuthHeader(): { Authorization: string } | {} {
   return {
     Authorization: `Bearer ${token}`,
   }
+}
+
+async function getApiError(response: Response, fallback: string): Promise<Error> {
+  try {
+    const error = (await response.json()) as { error?: string }
+    return new Error(error.error || fallback)
+  } catch {
+    return new Error(fallback)
+  }
+}
+
+export async function updateProfileName(name: string): Promise<ProfileUpdateResponse> {
+  const response = await fetch(`${API_URL}/api/profile/name`, {
+    method: "PATCH",
+    headers: {
+      ...getAuthHeader(),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name }),
+  })
+
+  if (!response.ok) {
+    throw await getApiError(response, "Failed to update profile name")
+  }
+
+  const data = (await response.json()) as ProfileUpdateResponse
+  setToken(data.token)
+  return data
+}
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<{ message: string }> {
+  const response = await fetch(`${API_URL}/api/profile/password`, {
+    method: "POST",
+    headers: {
+      ...getAuthHeader(),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      current_password: currentPassword,
+      new_password: newPassword,
+    }),
+  })
+
+  if (!response.ok) {
+    throw await getApiError(response, "Failed to change password")
+  }
+
+  return response.json()
 }
 
 /**
@@ -219,4 +273,3 @@ export function isTokenExpired(): boolean {
 
   return Date.now() >= expiration * 1000
 }
-

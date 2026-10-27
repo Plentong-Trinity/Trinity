@@ -204,6 +204,31 @@ func (r *UserRepository) ChangePassword(ctx context.Context, userID, newPassword
 	return nil
 }
 
+// UpdateName updates a user's display name.
+func (r *UserRepository) UpdateName(ctx context.Context, userID, name string) error {
+	query := `
+		UPDATE users
+		SET name = $1, updated_at = NOW()
+		WHERE id = $2
+	`
+
+	result, err := r.db.ExecContext(ctx, query, name, userID)
+	if err != nil {
+		return fmt.Errorf("failed to update user name: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("user not found")
+	}
+
+	return nil
+}
+
 // DeleteUser soft-deletes a user (sets is_active to false)
 func (r *UserRepository) DeleteUser(ctx context.Context, userID string) error {
 	query := `
