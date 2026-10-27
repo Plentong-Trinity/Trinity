@@ -20,6 +20,8 @@ func Register(r *gin.Engine) {
 	api := r.Group("/api", middleware.RequestLogger())
 	{
 		api.GET("/hello", handlers.Hello)
+		api.GET("/bulletin/latest", handlers.GetLatestBulletin)
+		api.GET("/bulletin", handlers.ListBulletins)
 		api.POST("/echo", handlers.Echo)
 	}
 

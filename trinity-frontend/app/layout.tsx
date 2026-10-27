@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import "./globals.css"
 import { ThemeProvider } from "@/components/for-referencing/theme-provider"
+import { TabLoadingIndicator } from "@/components/tab-loading-indicator"
 
 export const metadata: Metadata = {
   title: "St' Joseph Plentong Church",
@@ -184,6 +185,7 @@ export default function RootLayout({
       </head>
       <body>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
+          <TabLoadingIndicator />
           {children}
         </ThemeProvider>
       </body>

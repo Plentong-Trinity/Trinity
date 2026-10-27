@@ -6,6 +6,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { ArrowRight } from "lucide-react"
 import { blogPosts } from "@/lib/blog-data" // Updated import
+import { LatestBulletin } from "@/components/blog/latest-bulletin"
 
 export default function BlogIndexPage() {
   return (
@@ -21,6 +22,7 @@ export default function BlogIndexPage() {
           </header>
 
           <div className="grid gap-8 max-w-4xl mx-auto">
+            <LatestBulletin />
             {blogPosts.map((post) => (
               <Card
                 key={post.slug}

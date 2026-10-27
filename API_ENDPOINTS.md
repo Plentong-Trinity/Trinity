@@ -125,6 +125,24 @@ curl -X POST http://localhost:8080/auth/logout \
 
 ## Public Endpoints
 
+### Bulletins
+**Endpoint:** `GET /api/bulletin`
+
+**Description:** Return up to the ten newest rows from `public.bulletin`, ordered by `created_at` descending.
+
+**Response (200 OK):** An array of bulletin rows as JSON. The array is empty when no bulletins exist.
+
+### Latest Bulletin
+**Endpoint:** `GET /api/bulletin/latest`
+
+**Description:** Return the newest row from `public.bulletin`, ordered by `created_at` descending.
+
+**Response (200 OK):** The bulletin row as JSON, including its table columns.
+
+**Error Response (404 Not Found):** No bulletin exists.
+
+---
+
 ### 4. Health Check
 **Endpoint:** `GET /health`
 
