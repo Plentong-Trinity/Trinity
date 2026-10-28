@@ -26,6 +26,13 @@ export function TabLoadingIndicator() {
 
   useEffect(() => {
     const pending = pendingNavigation.current
+    if (pathname === "/") {
+      if (pending) window.clearTimeout(pending.timeout)
+      pendingNavigation.current = null
+      stopLoadingIcon()
+      return
+    }
+
     if (!pending || pathname === pending.pathname) return
 
     window.clearTimeout(pending.timeout)
@@ -70,9 +77,14 @@ export function TabLoadingIndicator() {
       const destination = new URL(anchor.href, window.location.href)
       if (destination.origin !== window.location.origin) return
 
-      const destinationPath = destination.pathname === window.location.pathname && destination.hash && window.location.pathname !== "/"
-        ? "/"
-        : destination.pathname
+      if (destination.hash || destination.pathname === "/") {
+        if (pendingNavigation.current) window.clearTimeout(pendingNavigation.current.timeout)
+        pendingNavigation.current = null
+        stopLoadingIcon()
+        return
+      }
+
+      const destinationPath = destination.pathname
       if (destinationPath === window.location.pathname) return
 
       if (pendingNavigation.current) window.clearTimeout(pendingNavigation.current.timeout)
