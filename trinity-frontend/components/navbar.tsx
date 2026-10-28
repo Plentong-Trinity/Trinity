@@ -229,11 +229,11 @@ function NavLinks({ mobile = false, scrollToSection, onClick, userRole, userName
       </div>
 
       {isAuthenticated && userRole === "admin" && (
-        <Link href="/admin-dashboard" className={linkClass} onClick={onClick}>Admin</Link>
+        <Link href="/admin-dashboard" className={linkClass} onClick={onClick}>Dashboard</Link>
       )}
 
       {isAuthenticated && userRole !== "admin" && (
-        <Link href="/user-dashboard" className={linkClass} onClick={onClick}>{userRole}</Link>
+        <Link href="/user-dashboard" className={linkClass} onClick={onClick}>Dashboard</Link>
       )}
 
       {isAuthenticated ? (
@@ -278,9 +278,9 @@ function NavLinks({ mobile = false, scrollToSection, onClick, userRole, userName
 
 function AvatarImage({ userId }: { userId: string | null }) {
   const [imageUrl, setImageUrl] = useState<string | null>(() =>
-    userId ? avatarImageCache.get(`${process.env.NEXT_PUBLIC_SUPABASE_AVATAR_BUCKET || "Profile Pic"}:${userId}`) ?? null : null
+    userId ? avatarImageCache.get(`${process.env.NEXT_PUBLIC_SUPABASE_AVATAR_BUCKET}:${userId}`) ?? null : null
   )
-  const bucket = process.env.NEXT_PUBLIC_SUPABASE_AVATAR_BUCKET || "Profile Pic"
+  const bucket = process.env.NEXT_PUBLIC_SUPABASE_AVATAR_BUCKET
 
   useEffect(() => {
     let isActive = true

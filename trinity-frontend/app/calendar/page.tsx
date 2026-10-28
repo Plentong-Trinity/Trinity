@@ -485,13 +485,13 @@ export default function EventCalendarPage() {
                   type="button"
                   key={index}
                   onClick={() => handleDayClick(date)}
-                  disabled={!!((nextConstraint && date > nextConstraint.start_time) || (startDate && date < startDate) || (date < new Date() && !isTodayDate) || isFullyBooked)} // Disable past dates (except today) and dates after constraint or before start date
+                  disabled={!!((nextConstraint && date > nextConstraint.start_time) || (startDate && date < startDate) || date < new Date() || isFullyBooked)} // Disable past dates, including today, and dates after constraint or before start date
                   className={cn(
                     "min-h-24 md:min-h-28 border-b border-r last:border-r-0 [&:nth-child(7n)]:border-r-0 p-1 md:p-2 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-inset",
 
                     !isCurrentMonth && "bg-muted/50 text-muted-foreground",
 
-                    (date < new Date() && !isTodayDate) && "bg-muted/40 text-muted-foreground opacity-50 cursor-not-allowed hover:bg-muted/40",
+                    date < new Date() && "bg-muted/40 text-muted-foreground opacity-50 cursor-not-allowed hover:bg-muted/40",
 
                     isFullyBooked && "bg-red-100 text-red-700 border border-red-300 cursor-not-allowed hover:bg-red-100",
 
@@ -516,7 +516,7 @@ export default function EventCalendarPage() {
                     <span
                       className={cn(
                         "inline-flex size-6 md:size-7 items-center justify-center rounded-full text-sm",
-                        !isCurrentMonth && "text-muted-foreground",
+                        !isCurrentMonth && !isTodayDate && "text-muted-foreground",
                         isTodayDate && "bg-primary text-primary-foreground font-medium"
                       )}
                     >

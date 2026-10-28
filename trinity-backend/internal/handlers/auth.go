@@ -166,7 +166,7 @@ func Signup(c *gin.Context) {
 		})
 		return
 	}
-	if err != nil && err.Error() == "database is not initialized" {
+	if err.Error() == "database is not initialized" {
 		c.JSON(http.StatusServiceUnavailable, gin.H{
 			"error": "Authentication service unavailable",
 		})
